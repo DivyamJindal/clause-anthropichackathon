@@ -39,6 +39,7 @@ function stripInteractiveMarkers(content: string): string {
     .replace(/---QUESTION---/g, "")
     .replace(/---OPTIONS---/g, "")
     .replace(/---END---/g, "")
+    .replace(/-{1,2}(?:QUESTION|OPTIONS|END)-{0,3}$/g, "")
     .trim();
 }
 
@@ -259,7 +260,7 @@ export default function ResolvePage() {
                   isThinkingBlock = false;
                 } else if (data.type === "text_start") {
                   // text block starting
-                } else if (data.content && !data.type) {
+                } else if (data.content && (data.type === "text" || !data.type)) {
                   accumulatedContent += data.content;
                   setMessages((prev) => {
                     const updated = [...prev];
