@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, Brain, ChevronDown, Gavel, Check } from "lucide-react";
+import { Send, Loader2, Brain, ChevronDown, Gavel, Check, FileText } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SEO } from "@/components/seo";
@@ -205,7 +206,7 @@ export default function ResolvePage() {
                     setInput(example);
                     textareaRef.current?.focus();
                   }}
-                  className="w-full text-left px-4 py-3 rounded-md border text-sm text-foreground hover-elevate active-elevate-2 transition-colors"
+                  className="w-full text-left px-4 py-3 rounded-md glass text-sm text-foreground hover-elevate active-elevate-2 transition-colors"
                   data-testid={`button-example-${idx}`}
                 >
                   {example}
@@ -248,17 +249,12 @@ export default function ResolvePage() {
           ))}
           {isStreaming && messages[messages.length - 1]?.content === "" && (
             <div className="flex justify-start" data-testid="status-streaming">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm">
-                  {messages[messages.length - 1]?.thinking ? "Reasoning..." : "Thinking..."}
-                </span>
-              </div>
+              <ThinkingIndicator hasThinking={!!messages[messages.length - 1]?.thinking} />
             </div>
           )}
           {messages.length >= 2 && !isStreaming && !escalated && (
             <div className="flex justify-start px-1 py-2" data-testid="escalate-section">
-              <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-muted/50 border border-border/50 max-w-[85%]">
+              <div className="flex items-center gap-3 px-4 py-3 rounded-lg glass max-w-[85%]">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">Settlement not working?</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -284,7 +280,7 @@ export default function ResolvePage() {
           )}
           {escalated && escalatedCaseId && (
             <div className="flex justify-start px-1 py-2" data-testid="escalated-confirmation">
-              <div className="px-4 py-3 rounded-lg bg-primary/10 border border-primary/20 max-w-[85%] space-y-2">
+              <div className="px-4 py-3 rounded-lg glass border-primary/20 max-w-[85%] space-y-2">
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-primary" />
                   <p className="text-sm font-medium text-foreground">Case filed in court</p>
@@ -305,7 +301,7 @@ export default function ResolvePage() {
         </div>
       )}
 
-      <div className="sticky bottom-0 bg-background border-t border-border/50 px-4 py-3">
+      <div className="sticky bottom-0 bg-background/60 backdrop-blur-xl border-t border-border/30 px-4 py-3">
         <div className="max-w-3xl mx-auto relative">
           <Textarea
             ref={textareaRef}
@@ -333,6 +329,53 @@ export default function ResolvePage() {
   );
 }
 
+const thinkingLabels = [
+  "Analyzing applicable Indian law...",
+  "Reviewing Section 138 NI Act...",
+  "Calculating limitation periods...",
+  "Examining relevant precedents...",
+  "Assessing legal position...",
+  "Evaluating settlement options...",
+];
+
+function ThinkingIndicator({ hasThinking }: { hasThinking: boolean }) {
+  const [labelIndex, setLabelIndex] = useState(0);
+
+  useEffect(() => {
+    if (!hasThinking) return;
+    const interval = setInterval(() => {
+      setLabelIndex((prev) => (prev + 1) % thinkingLabels.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [hasThinking]);
+
+  return (
+    <div className="glass rounded-lg px-4 py-3 space-y-2 max-w-[300px]" data-testid="indicator-thinking">
+      <div className="flex items-center gap-3">
+        <div className="relative">
+          <div className="absolute inset-0 bg-primary/30 rounded-full animate-pulse-ring" />
+          <div className="relative w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <Brain className="w-4 h-4 text-primary" />
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-foreground">
+            {hasThinking ? "Deep reasoning" : "Thinking"}
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            {hasThinking ? thinkingLabels[labelIndex] : "Preparing analysis..."}
+          </p>
+        </div>
+      </div>
+      {hasThinking && (
+        <div className="h-1 bg-muted rounded-full">
+          <div className="h-full bg-primary/40 rounded-full animate-shimmer" style={{ width: "100%" }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ThinkingBlock({ thinking }: { thinking: string }) {
   const [isOpen, setIsOpen] = useState(false);
   if (!thinking) return null;
@@ -341,15 +384,15 @@ function ThinkingBlock({ thinking }: { thinking: string }) {
     <div className="mb-3">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 text-xs text-muted-foreground hover-elevate active-elevate-2 px-2 py-1.5 rounded-md transition-colors"
+        className="flex items-center gap-2 text-xs text-muted-foreground hover-elevate active-elevate-2 px-2 py-1.5 rounded-md transition-colors glass-subtle"
         data-testid="button-toggle-thinking"
       >
-        <Brain className="w-3.5 h-3.5" />
+        <Brain className="w-3.5 h-3.5 text-primary" />
         <span>{isOpen ? "Hide" : "View"} legal reasoning</span>
         <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
       {isOpen && (
-        <div className="mt-2 pl-3 border-l-2 border-primary/20 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap" data-testid="text-thinking-content">
+        <div className="mt-2 pl-3 border-l-2 border-primary/30 text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap" data-testid="text-thinking-content">
           {thinking}
         </div>
       )}
@@ -357,10 +400,49 @@ function ThinkingBlock({ thinking }: { thinking: string }) {
   );
 }
 
+function LegalDocumentPreview({ content }: { content: string }) {
+  return (
+    <div className="my-4 glass-strong rounded-md" data-testid="card-legal-document">
+      <div className="px-5 py-3 border-b border-border/30 flex items-center gap-2">
+        <FileText className="w-4 h-4 text-primary" />
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Legal Notice Draft</span>
+        <Badge variant="outline" className="ml-auto text-[10px]">Draft</Badge>
+      </div>
+      <div className="px-6 py-5 font-serif text-sm leading-relaxed whitespace-pre-wrap text-foreground/90" data-testid="text-legal-document-content">
+        {content}
+      </div>
+    </div>
+  );
+}
+
 function AssistantContent({ content }: { content: string }) {
   if (!content) return null;
 
-  const lines = content.split("\n");
+  const legalNoticePattern = /(?:^|\n)((?:LEGAL\s*NOTICE|DEMAND\s*NOTICE|NOTICE\s*UNDER\s*SECTION)[\s\S]*?)(?=\n\n(?:[A-Z]|$)|$)/i;
+  const noticeMatch = content.match(legalNoticePattern);
+
+  let beforeNotice = content;
+  let noticeContent: string | null = null;
+  let afterNotice = "";
+
+  if (noticeMatch && noticeMatch[1] && noticeMatch[1].length > 100) {
+    const idx = content.indexOf(noticeMatch[1]);
+    beforeNotice = content.slice(0, idx);
+    noticeContent = noticeMatch[1].trim();
+    afterNotice = content.slice(idx + noticeMatch[1].length);
+  }
+
+  return (
+    <>
+      {beforeNotice && <FormattedText text={beforeNotice} keyPrefix="before" />}
+      {noticeContent && <LegalDocumentPreview content={noticeContent} />}
+      {afterNotice && <FormattedText text={afterNotice} keyPrefix="after" />}
+    </>
+  );
+}
+
+function FormattedText({ text, keyPrefix }: { text: string; keyPrefix: string }) {
+  const lines = text.split("\n");
   const elements: JSX.Element[] = [];
 
   lines.forEach((line, i) => {
@@ -368,13 +450,13 @@ function AssistantContent({ content }: { content: string }) {
 
     if (trimmed.startsWith("**") && trimmed.endsWith("**")) {
       elements.push(
-        <h3 key={i} className="font-semibold text-foreground mt-4 mb-1 text-sm">
+        <h3 key={`${keyPrefix}-${i}`} className="font-semibold text-foreground mt-4 mb-1 text-sm">
           {trimmed.replace(/\*\*/g, "")}
         </h3>
       );
     } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       elements.push(
-        <p key={i} className="text-sm text-foreground/90 pl-3 py-0.5 leading-relaxed flex gap-2">
+        <p key={`${keyPrefix}-${i}`} className="text-sm text-foreground/90 pl-3 py-0.5 leading-relaxed flex gap-2">
           <span className="text-muted-foreground shrink-0">-</span>
           <span>{formatInlineBold(trimmed.slice(2))}</span>
         </p>
@@ -382,16 +464,16 @@ function AssistantContent({ content }: { content: string }) {
     } else if (/^\d+\.\s/.test(trimmed)) {
       const num = trimmed.match(/^(\d+)\.\s/)?.[1];
       elements.push(
-        <p key={i} className="text-sm text-foreground/90 pl-3 py-0.5 leading-relaxed flex gap-2">
+        <p key={`${keyPrefix}-${i}`} className="text-sm text-foreground/90 pl-3 py-0.5 leading-relaxed flex gap-2">
           <span className="text-muted-foreground shrink-0">{num}.</span>
           <span>{formatInlineBold(trimmed.replace(/^\d+\.\s/, ""))}</span>
         </p>
       );
     } else if (trimmed === "") {
-      elements.push(<div key={i} className="h-2" />);
+      elements.push(<div key={`${keyPrefix}-${i}`} className="h-2" />);
     } else {
       elements.push(
-        <p key={i} className="text-sm text-foreground/90 leading-relaxed">
+        <p key={`${keyPrefix}-${i}`} className="text-sm text-foreground/90 leading-relaxed">
           {formatInlineBold(trimmed)}
         </p>
       );

@@ -36,7 +36,7 @@ function App() {
           <div className="flex h-screen w-full">
             <AppSidebar />
             <div className="flex flex-col flex-1 min-w-0">
-              <header className="sticky top-0 z-50 flex items-center h-14 px-4 border-b border-border/50 bg-background/80 backdrop-blur-sm">
+              <header className="sticky top-0 z-50 flex items-center h-14 px-4 border-b border-border/30 bg-background/60 backdrop-blur-xl">
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
               </header>
               <main className="flex-1 overflow-y-auto">

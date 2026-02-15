@@ -11,6 +11,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarHeader,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 
 const navItems = [
@@ -52,6 +53,12 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="p-4">
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400" />
+          <p className="text-[10px] text-muted-foreground">Powered by Claude</p>
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }

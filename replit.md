@@ -28,12 +28,18 @@ Preferred communication style: Simple, everyday language.
 - **Path Aliases**: `@/` → `client/src/`, `@shared/` → `shared/`, `@assets/` → `attached_assets/`
 
 **Key Pages:**
-- `/` — Landing page with Ramesh's cheque bounce story (6-step pipeline timeline)
-- `/resolve` — Chat-based dispute resolution interface with streaming AI responses
-- `/bench` — Judge dashboard listing bail applications
-- `/bench/:id` — Individual case detail with AI-generated bench brief
+- `/` — Glassmorphic landing page with animated impact stats, before/after comparison, and Ramesh's 6-step story timeline
+- `/resolve` — Chat-based dispute resolution with Claude's extended thinking, collapsible reasoning display, deadline timeline, legal notice document preview, and escalation to court
+- `/bench` — Judge dashboard listing bail applications with glass-styled case list
+- `/bench/:id` — Individual case detail with AI-generated bench brief and glass recommendation card
 
-**Layout**: App uses a collapsible sidebar (`AppSidebar`) with a fixed header containing sidebar toggle. Main content area scrolls independently.
+**Layout**: App uses a collapsible sidebar (`AppSidebar`) with a glassmorphic header (backdrop-blur). Main content area scrolls independently.
+
+**UI System:**
+- Glassmorphic utilities: `.glass`, `.glass-strong`, `.glass-subtle` (backdrop-blur with semi-transparent backgrounds)
+- Animations: `animate-gradient`, `animate-float`, `animate-pulse-ring`, `animate-shimmer`
+- Gradient orbs for ambient background depth
+- All glass effects work in both light and dark mode via semantic CSS variables
 
 ### Backend
 - **Framework**: Express.js on Node.js with TypeScript
@@ -52,7 +58,8 @@ Preferred communication style: Simple, everyday language.
 - `GET/POST /api/cases` — List/create bail cases
 - `GET /api/cases/:id` — Get single case
 - `POST /api/cases/:id/analyze` — Generate AI bench brief
-- `POST /api/resolve/chat` — Streaming chat for dispute resolution
+- `POST /api/resolve/chat` — Streaming chat with Claude's extended thinking (thinking_start/thinking/thinking_end + text events via SSE)
+- `POST /api/escalate` — Create a court case from a Resolve chat (Resolve-to-Bench pipeline)
 - `/api/conversations/*` — Chat conversation CRUD (Replit integration)
 
 ### Shared Code
@@ -88,6 +95,9 @@ Preferred communication style: Simple, everyday language.
 2. **Auto-analyze on Case View**: When a judge opens a case detail page, if no brief exists, analysis is automatically triggered — zero-click workflow
 3. **Shared Route Definitions**: API contracts defined once in `shared/routes.ts` with Zod schemas, used by both client hooks and server handlers for type safety
 4. **JSON columns for AI output**: Analysis results stored as JSONB in PostgreSQL, allowing flexible AI output structures without schema migrations
+5. **Extended Thinking**: Claude's extended thinking mode (budget_tokens: 10000) streams separately from text, shown in collapsible "View legal reasoning" sections for full transparency
+6. **Resolve-to-Bench Pipeline**: Disputes can escalate to court cases, creating entries in the judge's docket with automatic offense detection from chat context
+7. **Glassmorphic Design**: Frosted glass panels with backdrop-filter blur create depth and premium visual hierarchy; gradient orbs add ambient color
 
 ## External Dependencies
 
