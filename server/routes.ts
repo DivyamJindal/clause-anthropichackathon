@@ -4,11 +4,45 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
+import multer from "multer";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
 
 const anthropic = new Anthropic({
   apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
 });
+
+const researchTools = [
+  {
+    name: "get_document_pages",
+    description: "Retrieve specific pages from a case document. Use this to read the content of documents filed in this case. You can request multiple pages at once.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        document_id: { type: "number", description: "The ID of the document to read from" },
+        page_numbers: {
+          type: "array",
+          items: { type: "number" },
+          description: "Array of page numbers to retrieve (1-indexed)"
+        },
+      },
+      required: ["document_id", "page_numbers"],
+    },
+  },
+  {
+    name: "search_case_documents",
+    description: "Search across all documents in this case for specific terms or phrases. Returns matching pages with their content. Use this when looking for specific information like dates, names, or legal terms.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string", description: "Search query to find relevant pages" },
+      },
+      required: ["query"],
+    },
+  },
+];
 
 function extractJSON(text: string): any {
   const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
@@ -133,6 +167,8 @@ For BAIL cases analyze:
 
 Be legally precise. Cite specific sections and judgments. Use formal legal language.
 Return ONLY valid JSON. No markdown, no code blocks, just the JSON object.`;
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 export async function registerRoutes(
   httpServer: Server,
@@ -315,28 +351,113 @@ Return ONLY a JSON object (no markdown) with:
     if (!case_) return res.status(404).json({ message: 'Case not found' });
 
     try {
-      const prompt = `Generate a Judicial Bench Brief for this Bail Application.
+      const documents = await storage.getDocumentsByCaseId(id);
+
+      let documentInventory = "No case documents have been uploaded.";
+      if (documents.length > 0) {
+        documentInventory = "Available case documents:\n" + documents.map(d =>
+          `- Document ID ${d.id}: "${d.name}" (Type: ${d.type}, ${d.totalPages} pages)`
+        ).join("\n");
+      }
+
+      const systemPrompt = BENCH_SYSTEM_PROMPT + `\n\nIMPORTANT: You have access to case documents filed in this matter. Before generating your brief, you MUST research the available documents thoroughly. Use the tools provided to read document pages and search for specific information. Make multiple research passes if needed — don't stop at the first document. Build a complete picture of the case from the filed documents.\n\nAfter your research is complete, generate the JSON brief. Your analysis must cite specific documents and page numbers where you found key facts. Add a "citations" array to your JSON output where each citation has: documentId (number), documentName (string), pageNumber (number), and excerpt (string - the relevant text you're citing).\n\nAlso add a "confidenceAssessment" object with: overall ("HIGH"/"MEDIUM"/"LOW"), evidenceGaps (array of strings describing what information is missing or unclear), and contradictions (array of strings describing any conflicting information found across documents).\n\nIf no documents are available, proceed with analysis based on case metadata alone but note this in your confidence assessment.`;
+
+      let messages: any[] = [{
+        role: "user",
+        content: `Generate a Judicial Bench Brief for this Bail Application.
+
 Case Details:
 - Applicant: ${case_.applicantName}
 - Offense: ${case_.offenseType}
 - Period in Custody: ${case_.detentionMonths} months
-- Assume this is a first-time offender unless the offense suggests otherwise
 - Today's date: ${new Date().toISOString().split('T')[0]}
 
-Provide comprehensive analysis with relevant precedents.`;
+${documentInventory}
 
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-5",
-        max_tokens: 8192,
-        system: BENCH_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: prompt }],
-      });
+First, research the available documents thoroughly using the provided tools. Read key pages from each document, search for relevant terms. Then generate your comprehensive bench brief as JSON.`
+      }];
 
-      const contentBlock = response.content[0];
-      let briefData;
+      let briefData = null;
+      let maxIterations = 8;
+      let researchLog: Array<{tool: string, input: any, pagesReturned: number}> = [];
 
-      if (contentBlock.type === 'text') {
-        briefData = extractJSON(contentBlock.text);
+      for (let iteration = 0; iteration < maxIterations; iteration++) {
+        const response = await anthropic.messages.create({
+          model: "claude-sonnet-4-5",
+          max_tokens: 16000,
+          thinking: {
+            type: "enabled",
+            budget_tokens: 10000,
+          },
+          system: systemPrompt,
+          tools: researchTools,
+          messages,
+        });
+
+        if (response.stop_reason === "tool_use") {
+          const toolResults: any[] = [];
+
+          for (const block of response.content) {
+            if (block.type === "tool_use") {
+              let result: string;
+
+              if (block.name === "get_document_pages") {
+                const { document_id, page_numbers } = block.input as any;
+                const pages = await storage.getPagesByDocumentId(document_id);
+                const requestedPages = pages.filter(p => page_numbers.includes(p.pageNumber));
+
+                if (requestedPages.length === 0) {
+                  result = `No pages found for document ${document_id} with page numbers ${page_numbers.join(", ")}. The document may have fewer pages.`;
+                } else {
+                  result = requestedPages.map(p =>
+                    `--- Page ${p.pageNumber} ---\n${p.content}`
+                  ).join("\n\n");
+                }
+
+                researchLog.push({ tool: "get_document_pages", input: { document_id, page_numbers }, pagesReturned: requestedPages.length });
+              } else if (block.name === "search_case_documents") {
+                const { query } = block.input as any;
+                const matchingPages = await storage.searchPages(id, query);
+
+                if (matchingPages.length === 0) {
+                  result = `No pages found matching "${query}".`;
+                } else {
+                  result = `Found ${matchingPages.length} matching page(s):\n` + matchingPages.slice(0, 10).map(p =>
+                    `--- Document ${p.documentId}, Page ${p.pageNumber} ---\n${p.content.substring(0, 1000)}${p.content.length > 1000 ? '...' : ''}`
+                  ).join("\n\n");
+                }
+
+                researchLog.push({ tool: "search_case_documents", input: { query }, pagesReturned: matchingPages.length });
+              } else {
+                result = "Unknown tool";
+              }
+
+              toolResults.push({
+                type: "tool_result",
+                tool_use_id: block.id,
+                content: result,
+              });
+            }
+          }
+
+          messages.push({ role: "assistant", content: response.content });
+          messages.push({ role: "user", content: toolResults });
+
+        } else if (response.stop_reason === "end_turn") {
+          for (const block of response.content) {
+            if (block.type === "text") {
+              briefData = extractJSON(block.text);
+              if (briefData) {
+                briefData.researchLog = researchLog;
+                break;
+              }
+            }
+          }
+          break;
+        } else {
+          console.warn("Unexpected stop reason:", response.stop_reason);
+          break;
+        }
       }
 
       if (!briefData) {
@@ -353,7 +474,10 @@ Provide comprehensive analysis with relevant precedents.`;
             { caseName: "Jalaluddin Khan v. Union of India", year: "2006", relevance: "Bail is the rule, jail is the exception - fundamental SC principle" }
           ],
           recommendation: { decision: "GRANT", confidence: "HIGH", reasoning: "First-time offender charged with negligence. Investigation complete, chargesheet filed. Local roots, family present. No flight risk. SC guidelines categorize such offenses for liberal bail grant.", conditions: ["Personal bond of Rs. 50,000 with one surety", "Report to local police station weekly", "Surrender passport", "Attend all court hearings"] },
-          draftOrder: "Considering the nature of the offense, the period of custody already undergone, and the guidelines laid down by the Hon'ble Supreme Court in Satender Kumar Antil v. CBI, the bail application is allowed. The applicant is directed to be released on bail on furnishing a personal bond."
+          draftOrder: "Considering the nature of the offense, the period of custody already undergone, and the guidelines laid down by the Hon'ble Supreme Court in Satender Kumar Antil v. CBI, the bail application is allowed. The applicant is directed to be released on bail on furnishing a personal bond.",
+          researchLog: [],
+          confidenceAssessment: { overall: "LOW", evidenceGaps: ["No case documents were available for review"], contradictions: [] },
+          citations: [],
         };
       }
 
@@ -426,6 +550,110 @@ Return the order text as a plain string, no JSON, no markdown code blocks.`;
     }
   });
 
+  // --- Document Upload & Management ---
+  app.post("/api/cases/:id/documents", upload.single("file"), async (req, res) => {
+    try {
+      const caseId = Number(req.params.id);
+      const case_ = await storage.getCase(caseId);
+      if (!case_) return res.status(404).json({ message: "Case not found" });
+
+      const name = req.body.name || "Untitled Document";
+      const type = req.body.type || "other";
+      let textContent = "";
+
+      if (req.file) {
+        const ext = req.file.originalname.split(".").pop()?.toLowerCase();
+        if (ext === "pdf") {
+          const pdfData = await pdfParse(req.file.buffer);
+          textContent = pdfData.text;
+        } else {
+          textContent = req.file.buffer.toString("utf-8");
+        }
+      } else if (req.body.text) {
+        textContent = req.body.text;
+      } else {
+        return res.status(400).json({ message: "No file or text provided" });
+      }
+
+      let pageTexts: string[];
+      if (textContent.includes("\n\n---\n\n")) {
+        pageTexts = textContent.split("\n\n---\n\n").filter((p: string) => p.trim().length > 0);
+      } else {
+        pageTexts = [];
+        for (let i = 0; i < textContent.length; i += 3000) {
+          const chunk = textContent.slice(i, i + 3000).trim();
+          if (chunk.length > 0) pageTexts.push(chunk);
+        }
+        if (pageTexts.length === 0 && textContent.trim().length > 0) {
+          pageTexts = [textContent.trim()];
+        }
+      }
+
+      const doc = await storage.createDocument({
+        caseId,
+        name,
+        type,
+        totalPages: pageTexts.length,
+      });
+
+      const pages = pageTexts.map((content: string, i: number) => ({
+        documentId: doc.id,
+        pageNumber: i + 1,
+        content,
+      }));
+
+      if (pages.length > 0) {
+        await storage.createPages(pages);
+      }
+
+      res.status(201).json(doc);
+    } catch (error) {
+      console.error("Document upload failed:", error);
+      res.status(500).json({ message: "Failed to upload document" });
+    }
+  });
+
+  app.get("/api/cases/:id/documents", async (req, res) => {
+    const caseId = Number(req.params.id);
+    const documents = await storage.getDocumentsByCaseId(caseId);
+    res.json(documents);
+  });
+
+  app.get("/api/documents/:id/pages", async (req, res) => {
+    const docId = Number(req.params.id);
+    const doc = await storage.getDocument(docId);
+    if (!doc) return res.status(404).json({ message: "Document not found" });
+    const pages = await storage.getPagesByDocumentId(docId);
+    res.json(pages);
+  });
+
+  app.get("/api/documents/:id/pages/:pageNum", async (req, res) => {
+    const docId = Number(req.params.id);
+    const pageNum = Number(req.params.pageNum);
+    const pages = await storage.getPagesByDocumentId(docId);
+    const page = pages.find(p => p.pageNumber === pageNum);
+    if (!page) return res.status(404).json({ message: "Page not found" });
+    res.json(page);
+  });
+
+  app.delete("/api/documents/:id", async (req, res) => {
+    const docId = Number(req.params.id);
+    const doc = await storage.getDocument(docId);
+    if (!doc) return res.status(404).json({ message: "Document not found" });
+    await storage.deleteDocument(docId);
+    res.json({ success: true });
+  });
+
+  app.post("/api/cases/:id/documents/search", async (req, res) => {
+    const caseId = Number(req.params.id);
+    const { query } = req.body;
+    if (!query || typeof query !== "string") {
+      return res.status(400).json({ message: "Query string required" });
+    }
+    const pages = await storage.searchPages(caseId, query);
+    res.json(pages);
+  });
+
   app.post("/api/escalate", async (req, res) => {
     try {
       const schema = z.object({
@@ -453,6 +681,119 @@ Return the order text as a plain string, no JSON, no markdown code blocks.`;
     } catch (error) {
       console.error("Escalation failed:", error);
       res.status(500).json({ message: "Failed to escalate to court" });
+    }
+  });
+
+  // --- Case Chat API (streaming) ---
+  app.post("/api/cases/:id/chat", async (req, res) => {
+    const id = Number(req.params.id);
+    const case_ = await storage.getCase(id);
+    if (!case_) return res.status(404).json({ message: "Case not found" });
+
+    const { messages } = req.body;
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ message: "messages array required" });
+    }
+
+    try {
+      const allPages = await storage.getPagesByCase(id);
+      const documents = await storage.getDocumentsByCaseId(id);
+
+      let documentsContent = "No case documents have been uploaded yet.";
+      if (allPages.length > 0) {
+        const pagesByDoc = new Map<number, typeof allPages>();
+        for (const page of allPages) {
+          const existing = pagesByDoc.get(page.documentId) || [];
+          existing.push(page);
+          pagesByDoc.set(page.documentId, existing);
+        }
+
+        documentsContent = "";
+        for (const doc of documents) {
+          const docPages = pagesByDoc.get(doc.id) || [];
+          documentsContent += `\n\n=== DOCUMENT: "${doc.name}" (${doc.type}) ===\n`;
+          for (const page of docPages.sort((a, b) => a.pageNumber - b.pageNumber)) {
+            documentsContent += `\n--- Page ${page.pageNumber} ---\n${page.content}\n`;
+          }
+        }
+      }
+
+      let briefSummary = "";
+      if (case_.brief) {
+        const brief = case_.brief as any;
+        briefSummary = `\nAI BRIEF SUMMARY:\n- Recommendation: ${brief.recommendation?.decision || "N/A"}\n- Reasoning: ${brief.recommendation?.reasoning || "N/A"}\n`;
+      }
+
+      const systemPrompt = `You are CLAUSE Bench Assistant, an AI law clerk helping a judge understand case documents. You have direct access to all documents filed in this case.
+
+Case: State v. ${case_.applicantName}
+Offense: ${case_.offenseType}
+Detention: ${case_.detentionMonths} months
+${briefSummary}
+
+CASE DOCUMENTS:
+${documentsContent}
+
+INSTRUCTIONS:
+- Answer the judge's questions accurately using ONLY the information in the case documents above
+- Always cite the specific document name and page number where you found information (e.g., "According to the FIR (Page 2)...")
+- If information is not available in the documents, say so clearly — do not make up facts
+- Be concise and precise — judges are busy
+- Use formal legal language appropriate for judicial proceedings
+- If asked about legal provisions, reference the relevant sections of Indian law`;
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      const stream = anthropic.messages.stream({
+        model: "claude-sonnet-4-5",
+        max_tokens: 8000,
+        thinking: {
+          type: "enabled",
+          budget_tokens: 5000,
+        },
+        system: systemPrompt,
+        messages: messages.map((m: any) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+      });
+
+      let currentBlockType: string | null = null;
+
+      for await (const event of stream) {
+        if (event.type === "content_block_start") {
+          currentBlockType = event.content_block.type;
+          if (currentBlockType === "thinking") {
+            res.write(`data: ${JSON.stringify({ type: "thinking_start" })}\n\n`);
+          } else if (currentBlockType === "text") {
+            res.write(`data: ${JSON.stringify({ type: "text_start" })}\n\n`);
+          }
+        } else if (event.type === "content_block_delta") {
+          if (event.delta.type === "thinking_delta") {
+            res.write(`data: ${JSON.stringify({ type: "thinking", content: event.delta.thinking })}\n\n`);
+          } else if (event.delta.type === "text_delta") {
+            res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
+          }
+        } else if (event.type === "content_block_stop") {
+          if (currentBlockType === "thinking") {
+            res.write(`data: ${JSON.stringify({ type: "thinking_end" })}\n\n`);
+          }
+          currentBlockType = null;
+        }
+      }
+
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
+    } catch (error) {
+      console.error("Case chat error:", error);
+      if (res.headersSent) {
+        res.write(`data: ${JSON.stringify({ error: "Something went wrong" })}\n\n`);
+        res.end();
+      } else {
+        res.status(500).json({ message: "Chat failed" });
+      }
     }
   });
 

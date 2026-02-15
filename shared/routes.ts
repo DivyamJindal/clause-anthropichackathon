@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { disputes, cases, insertDisputeSchema, insertCaseSchema } from './schema';
+import { disputes, cases, caseDocuments, documentPages, insertDisputeSchema, insertCaseSchema } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -106,7 +106,55 @@ export const api = {
         404: errorSchemas.notFound,
       },
     }
-  }
+  },
+  documents: {
+    upload: {
+      method: 'POST' as const,
+      path: '/api/cases/:id/documents' as const,
+      responses: {
+        201: z.custom<typeof caseDocuments.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    list: {
+      method: 'GET' as const,
+      path: '/api/cases/:id/documents' as const,
+      responses: {
+        200: z.array(z.custom<typeof caseDocuments.$inferSelect>()),
+      },
+    },
+    pages: {
+      method: 'GET' as const,
+      path: '/api/documents/:id/pages' as const,
+      responses: {
+        200: z.array(z.custom<typeof documentPages.$inferSelect>()),
+      },
+    },
+    page: {
+      method: 'GET' as const,
+      path: '/api/documents/:id/pages/:pageNum' as const,
+      responses: {
+        200: z.custom<typeof documentPages.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/documents/:id' as const,
+      responses: {
+        200: z.object({ success: z.boolean() }),
+        404: errorSchemas.notFound,
+      },
+    },
+    search: {
+      method: 'POST' as const,
+      path: '/api/cases/:id/documents/search' as const,
+      input: z.object({ query: z.string().min(1) }),
+      responses: {
+        200: z.array(z.custom<typeof documentPages.$inferSelect>()),
+      },
+    },
+  },
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {

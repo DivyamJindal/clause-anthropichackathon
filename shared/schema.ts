@@ -31,6 +31,30 @@ export type InsertDispute = z.infer<typeof insertDisputeSchema>;
 export type Case = typeof cases.$inferSelect;
 export type InsertCase = z.infer<typeof insertCaseSchema>;
 
+export const caseDocuments = pgTable("case_documents", {
+  id: serial("id").primaryKey(),
+  caseId: integer("case_id").notNull(),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  totalPages: integer("total_pages").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const documentPages = pgTable("document_pages", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").notNull(),
+  pageNumber: integer("page_number").notNull(),
+  content: text("content").notNull(),
+});
+
+export const insertCaseDocumentSchema = createInsertSchema(caseDocuments).omit({ id: true, createdAt: true });
+export const insertDocumentPageSchema = createInsertSchema(documentPages).omit({ id: true });
+
+export type CaseDocument = typeof caseDocuments.$inferSelect;
+export type InsertCaseDocument = z.infer<typeof insertCaseDocumentSchema>;
+export type DocumentPage = typeof documentPages.$inferSelect;
+export type InsertDocumentPage = z.infer<typeof insertDocumentPageSchema>;
+
 export type CreateDisputeRequest = InsertDispute;
 export type CreateCaseRequest = InsertCase;
 

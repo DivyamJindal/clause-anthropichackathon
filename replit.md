@@ -48,7 +48,9 @@ Preferred communication style: Simple, everyday language.
 - **API Pattern**: RESTful JSON API under `/api/` prefix
 - **AI Integration**: Anthropic Claude SDK (claude-sonnet-4-5) for legal analysis
   - Streaming responses for the Resolve chat interface (`/api/resolve/chat`)
-  - Structured analysis for Bench briefs (`/api/cases/:id/analyze`)
+  - **Iterative Research Loop** for Bench briefs (`/api/cases/:id/analyze`) — Claude uses tool-use to research case documents in multiple passes before generating the brief, calling `get_document_pages` and `search_case_documents` tools up to 8 iterations
+  - **Case Chatbot** (`/api/cases/:id/chat`) — Streaming chat grounded in uploaded case documents, with extended thinking
+  - Brief output includes citations (documentId, pageNumber, excerpt), confidenceAssessment (overall/evidenceGaps/contradictions), and researchLog
   - Anthropic client configured via `AI_INTEGRATIONS_ANTHROPIC_API_KEY` and `AI_INTEGRATIONS_ANTHROPIC_BASE_URL` environment variables
 - **Replit Integrations**: Built-in chat routes (`server/replit_integrations/chat/`) and batch processing utilities (`server/replit_integrations/batch/`)
 
@@ -61,6 +63,13 @@ Preferred communication style: Simple, everyday language.
 - `POST /api/cases/:id/analyze` — Generate AI bench brief
 - `POST /api/resolve/chat` — Streaming chat with Claude's extended thinking (thinking_start/thinking/thinking_end + text events via SSE)
 - `POST /api/escalate` — Create a court case from a Resolve chat (Resolve-to-Bench pipeline)
+- `POST /api/cases/:id/documents` — Upload a document (multipart/form-data with PDF or TXT, or pasted text)
+- `GET /api/cases/:id/documents` — List all documents for a case
+- `GET /api/documents/:id/pages` — Get all pages for a document
+- `GET /api/documents/:id/pages/:pageNum` — Get a specific page by number
+- `DELETE /api/documents/:id` — Delete a document and its pages
+- `POST /api/cases/:id/documents/search` — Search across document pages for a case
+- `POST /api/cases/:id/chat` — Streaming case chatbot (judge asks questions about case documents)
 - `/api/conversations/*` — Chat conversation CRUD (Replit integration)
 
 ### Shared Code
@@ -78,11 +87,13 @@ Preferred communication style: Simple, everyday language.
 **Tables:**
 - `disputes` — Stores citizen dispute data (description, type, status, AI analysis JSON, generated documents)
 - `cases` — Stores bail application data (applicant name, offense type, detention months, AI brief JSON, generated order)
+- `case_documents` — Case file uploads (linked to cases by caseId, stores name, type, totalPages)
+- `document_pages` — Individual pages of uploaded documents (linked to case_documents by documentId, stores pageNumber, content text)
 - `conversations` — Chat conversation metadata
 - `messages` — Individual chat messages linked to conversations
 
 ### Storage Layer
-- `server/storage.ts` — `DatabaseStorage` class implementing `IStorage` interface for disputes and cases
+- `server/storage.ts` — `DatabaseStorage` class implementing `IStorage` interface for disputes, cases, documents, and document pages
 - `server/replit_integrations/chat/storage.ts` — Separate storage for chat conversations/messages
 
 ### Build & Development
@@ -99,6 +110,10 @@ Preferred communication style: Simple, everyday language.
 5. **Extended Thinking**: Claude's extended thinking mode (budget_tokens: 10000) streams separately from text, shown in collapsible "View legal reasoning" sections for full transparency
 6. **Resolve-to-Bench Pipeline**: Disputes can escalate to court cases, creating entries in the judge's docket with automatic offense detection from chat context
 7. **Anthropic-Inspired Design**: Clean flat surfaces with warm earth tones matching Anthropic's Claude UI — cream/beige light mode, deep olive dark mode, coral accents, serif hero headings, sparkle logo
+8. **Page-Indexed Documents**: Case files stored as page-indexed documents in PostgreSQL — each page is a separate row for granular retrieval. No vector embedding / RAG needed; Claude reads actual pages via tool-use
+9. **Iterative Research Loop**: Case analysis uses Claude tool-use agentic loop — Claude calls get_document_pages and search_case_documents tools iteratively (up to 8 passes) to build complete understanding before generating brief. Mimics real law clerk research workflow
+10. **DeepWiki Case Chatbot**: Judges can ask questions about case documents via streaming chat. All document pages are loaded into Claude's context for grounded answers with page citations
+11. **Confidence Scoring**: AI brief includes evidence confidence assessment with gaps and contradictions flagged, so judges know where to focus attention
 
 ## External Dependencies
 
@@ -120,3 +135,5 @@ Preferred communication style: Simple, everyday language.
 - `date-fns` — Date formatting for legal deadlines
 - `connect-pg-simple` — PostgreSQL session store
 - `p-limit` / `p-retry` — Batch processing utilities for AI calls
+- `multer` — Multipart form data handling for file uploads
+- `pdf-parse` — PDF text extraction for document uploads
