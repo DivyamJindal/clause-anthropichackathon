@@ -2,13 +2,15 @@
 
 ## Overview
 
-CLAUSE is an AI-powered legal dispute resolution and judicial acceleration platform built for India's justice system. It has two core interfaces:
+CLAUSE is an AI-powered legal dispute resolution and judicial acceleration platform built for India's justice system. It tells one end-to-end story: a cheque bounce dispute flowing from citizen to courtroom.
 
-1. **CLAUSE Resolve** — For citizens, businesses, and advocates to resolve disputes *before* they enter court. Users describe their dispute (in any language), and the AI classifies it, identifies deadlines, proposes settlements, and generates legal documents.
+1. **CLAUSE Resolve** — For citizens to resolve cheque bounce and other disputes *before* they enter court. Users describe their dispute, and the AI classifies it under Section 138 NI Act, calculates the 30/15/30-day timeline, drafts demand notices, and proposes settlements.
 
-2. **CLAUSE Bench** — For judges and magistrates to process bail applications rapidly. AI generates structured bench briefs with precedent analysis and risk assessments, reducing case processing time from 30 minutes to 2 minutes.
+2. **CLAUSE Bench** — An AI law clerk for judges and magistrates. The AI prepares comprehensive briefs with precedent analysis and risk assessments — the judge always decides. Reduces case processing time from 30 minutes to 2 minutes.
 
 The tagline: *"What if every day was a National Lok Adalat?"*
+
+**Narrative Focus**: Ramesh's ₹3 lakh cheque bounces → CLAUSE Resolve walks him through → legal notice → settlement proposed → case enters court → CLAUSE Bench prepares the magistrate's brief → resolved in 2 weeks instead of 18 months.
 
 ## User Preferences
 
@@ -26,7 +28,7 @@ Preferred communication style: Simple, everyday language.
 - **Path Aliases**: `@/` → `client/src/`, `@shared/` → `shared/`, `@assets/` → `attached_assets/`
 
 **Key Pages:**
-- `/` — Landing page with links to both interfaces
+- `/` — Landing page with Ramesh's cheque bounce story (6-step pipeline timeline)
 - `/resolve` — Chat-based dispute resolution interface with streaming AI responses
 - `/bench` — Judge dashboard listing bail applications
 - `/bench/:id` — Individual case detail with AI-generated bench brief

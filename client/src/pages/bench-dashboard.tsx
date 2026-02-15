@@ -10,8 +10,8 @@ export default function BenchDashboard() {
   return (
     <div className="flex flex-col h-full">
       <SEO
-        title="Judge Dashboard - CLAUSE Bench"
-        description="AI-powered judicial bench briefs for bail applications. Process cases in minutes with automated precedent analysis and risk assessment."
+        title="Case Docket - CLAUSE Bench"
+        description="Your AI law clerk prepares comprehensive briefs with precedent analysis and risk assessment. Process cases in minutes, not hours."
       />
 
       <div className="max-w-4xl w-full mx-auto px-4 py-8 space-y-6">
