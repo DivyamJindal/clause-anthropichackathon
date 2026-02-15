@@ -153,7 +153,11 @@ export async function registerRoutes(
 
       const stream = anthropic.messages.stream({
         model: "claude-sonnet-4-5",
-        max_tokens: 8192,
+        max_tokens: 16000,
+        thinking: {
+          type: "enabled",
+          budget_tokens: 10000,
+        },
         system: RESOLVE_SYSTEM_PROMPT,
         messages: messages.map((m: any) => ({
           role: m.role as "user" | "assistant",
@@ -161,12 +165,27 @@ export async function registerRoutes(
         })),
       });
 
+      let currentBlockType: string | null = null;
+
       for await (const event of stream) {
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          const content = event.delta.text;
-          if (content) {
-            res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        if (event.type === "content_block_start") {
+          currentBlockType = event.content_block.type;
+          if (currentBlockType === "thinking") {
+            res.write(`data: ${JSON.stringify({ type: "thinking_start" })}\n\n`);
+          } else if (currentBlockType === "text") {
+            res.write(`data: ${JSON.stringify({ type: "text_start" })}\n\n`);
           }
+        } else if (event.type === "content_block_delta") {
+          if (event.delta.type === "thinking_delta") {
+            res.write(`data: ${JSON.stringify({ type: "thinking", content: event.delta.thinking })}\n\n`);
+          } else if (event.delta.type === "text_delta") {
+            res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
+          }
+        } else if (event.type === "content_block_stop") {
+          if (currentBlockType === "thinking") {
+            res.write(`data: ${JSON.stringify({ type: "thinking_end" })}\n\n`);
+          }
+          currentBlockType = null;
         }
       }
 
@@ -404,6 +423,36 @@ Return the order text as a plain string, no JSON, no markdown code blocks.`;
     } catch (error) {
       console.error("Decision generation failed:", error);
       res.status(500).json({ message: "Failed to generate order" });
+    }
+  });
+
+  app.post("/api/escalate", async (req, res) => {
+    try {
+      const schema = z.object({
+        applicantName: z.string().min(1),
+        offenseType: z.string().min(1),
+        summary: z.string().min(1),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid escalation data" });
+      }
+
+      const { applicantName, offenseType, summary } = parsed.data;
+
+      const newCase = await storage.createCase({
+        applicantName,
+        offenseType,
+        detentionMonths: 0,
+        status: "pending",
+        brief: null,
+        order: null,
+      });
+
+      res.status(201).json(newCase);
+    } catch (error) {
+      console.error("Escalation failed:", error);
+      res.status(500).json({ message: "Failed to escalate to court" });
     }
   });
 

@@ -50,6 +50,19 @@ export const api = {
       },
     }
   },
+  escalate: {
+    method: 'POST' as const,
+    path: '/api/escalate' as const,
+    input: z.object({
+      applicantName: z.string().min(1),
+      offenseType: z.string().min(1),
+      summary: z.string().min(1),
+    }),
+    responses: {
+      201: z.custom<typeof cases.$inferSelect>(),
+      400: errorSchemas.validation,
+    },
+  },
   cases: {
     list: {
       method: 'GET' as const,
