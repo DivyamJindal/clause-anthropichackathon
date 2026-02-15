@@ -2,9 +2,8 @@ import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
 import { rm, readFile } from "fs/promises";
 
-// server deps to bundle to reduce openat(2) syscalls
-// which helps cold start times
 const allowlist = [
+  "@anthropic-ai/sdk",
   "@google/generative-ai",
   "axios",
   "connect-pg-simple",
@@ -21,8 +20,11 @@ const allowlist = [
   "nanoid",
   "nodemailer",
   "openai",
+  "p-limit",
+  "p-retry",
   "passport",
   "passport-local",
+  "pdf-parse",
   "pg",
   "stripe",
   "uuid",
@@ -52,8 +54,17 @@ async function buildAll() {
     bundle: true,
     format: "cjs",
     outfile: "dist/index.cjs",
+    banner: {
+      js: [
+        `const { createRequire: topLevelCreateRequire } = require("module");`,
+        `const { fileURLToPath: topLevelFileURLToPath } = require("url");`,
+        `const { dirname: topLevelDirname } = require("path");`,
+        `const __importMetaUrl = require("url").pathToFileURL(__filename).href;`,
+      ].join("\n"),
+    },
     define: {
       "process.env.NODE_ENV": '"production"',
+      "import.meta.url": "__importMetaUrl",
     },
     minify: true,
     external: externals,
