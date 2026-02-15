@@ -1,207 +1,361 @@
-import { useEffect } from "react";
-import { useRoute, useLocation } from "wouter";
-import { useCase, useAnalyzeCase } from "@/hooks/use-cases";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card-stack";
+import { useEffect, useState } from "react";
+import { useRoute } from "wouter";
+import { useCase, useAnalyzeCase, useDecideCase } from "@/hooks/use-cases";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Gavel, Scale, AlertOctagon, BookOpen, Check, X } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Loader2, Check, X, RefreshCw, BookOpen, FileText, AlertCircle } from "lucide-react";
+import { SEO } from "@/components/seo";
+import { useToast } from "@/hooks/use-toast";
 import type { BenchBrief } from "@shared/schema";
-import { motion } from "framer-motion";
+
+interface CaseOrder {
+  text: string;
+  decision: string;
+  date: string;
+}
 
 export default function CaseDetail() {
-  const [match, params] = useRoute("/bench/:id");
-  const [, setLocation] = useLocation();
+  const [, params] = useRoute("/bench/:id");
   const id = parseInt(params?.id || "0");
   const { data: caseData, isLoading } = useCase(id);
   const analyzeCase = useAnalyzeCase();
+  const decideCase = useDecideCase();
+  const { toast } = useToast();
+  const [showOrder, setShowOrder] = useState(false);
 
   useEffect(() => {
-    // Auto-analyze on load for demo purposes if not present
-    if (caseData && !caseData.brief) {
+    if (caseData && !caseData.brief && !analyzeCase.isPending) {
       analyzeCase.mutate(id);
     }
   }, [caseData?.brief, id]);
 
-  if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="w-8 h-8 animate-spin" /></div>;
-  if (!caseData) return <div>Case not found</div>;
+  const handleDecision = (decision: "granted" | "denied") => {
+    decideCase.mutate(
+      { id, decision },
+      {
+        onSuccess: (data) => {
+          toast({
+            title: `Bail ${decision === "granted" ? "Granted" : "Denied"}`,
+            description: `Order generated for State v. ${data.applicantName}`,
+          });
+          setShowOrder(true);
+        },
+        onError: () => {
+          toast({
+            title: "Error",
+            description: "Failed to process decision. Please try again.",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full" data-testid="status-loading">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!caseData) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground text-sm" data-testid="text-not-found">
+        Case not found.
+      </div>
+    );
+  }
 
   const brief = caseData.brief as BenchBrief | null;
+  const order = caseData.order as CaseOrder | null;
   const isAnalyzing = analyzeCase.isPending;
+  const isDeciding = decideCase.isPending;
+  const isDecided = caseData.status === "granted" || caseData.status === "denied";
 
   return (
-    <div className="max-w-[1600px] mx-auto h-[calc(100vh-100px)] flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between pb-6 border-b mb-6 bg-background sticky top-0 z-10">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-display font-bold text-slate-900">
-              State vs. {caseData.applicantName}
-            </h1>
-            <Badge variant="outline" className="font-mono">CASE-{id.toString().padStart(4, '0')}</Badge>
-          </div>
-          <p className="text-slate-500 text-sm mt-1">{caseData.offenseType} • Custody: {caseData.detentionMonths} Months</p>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="outline" size="sm" onClick={() => analyzeCase.mutate(id)} disabled={isAnalyzing}>
-            {isAnalyzing ? "Processing..." : "Refresh Brief"}
-          </Button>
-          <Button className="bg-slate-900 text-white">Generate Order</Button>
-        </div>
-      </header>
+    <div className="flex flex-col h-full overflow-y-auto">
+      <SEO
+        title={`State v. ${caseData.applicantName} - CLAUSE Bench`}
+        description={`AI-generated bench brief for bail application: ${caseData.offenseType}. ${caseData.detentionMonths} months in custody.`}
+      />
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-12 gap-6 flex-1 overflow-hidden">
-        
-        {/* Left: Case Facts (3 cols) */}
-        <div className="col-span-12 lg:col-span-3 space-y-4 overflow-y-auto pr-2">
-          <Card className="bg-slate-50 border-slate-200 shadow-none">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm uppercase tracking-wider text-slate-500">Case Snapshot</CardTitle>
-            </CardHeader>
-            <div className="p-6 pt-0 space-y-4 text-sm">
-              <div>
-                <span className="block text-xs text-slate-400">Accused</span>
-                <span className="font-medium text-slate-900">{caseData.applicantName}</span>
-              </div>
-              <div>
-                <span className="block text-xs text-slate-400">FIR Date</span>
-                <span className="font-medium text-slate-900">{brief?.caseSnapshot?.firDate || "Loading..."}</span>
-              </div>
-              <div>
-                <span className="block text-xs text-slate-400">Max Sentence</span>
-                <span className="font-medium text-slate-900">{brief?.caseSnapshot?.maxSentence || "TBD"}</span>
-              </div>
-              <div className="pt-2 border-t border-slate-200">
-                <span className="block text-xs text-slate-400 mb-1">Timeline</span>
-                <div className="w-full bg-slate-200 rounded-full h-1.5 mb-1">
-                  <div className="bg-slate-800 h-1.5 rounded-full" style={{ width: '60%' }}></div>
-                </div>
-                <span className="text-xs text-slate-500">Investigation Complete</span>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="bg-white border-slate-200">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm uppercase tracking-wider text-slate-500">Legal Precedents</CardTitle>
-            </CardHeader>
-            <div className="p-6 pt-0 space-y-3">
-              {brief?.precedents ? (
-                brief.precedents.map((p, i) => (
-                  <div key={i} className="text-sm border-b border-slate-100 last:border-0 pb-2 last:pb-0">
-                    <p className="font-medium text-blue-800 hover:underline cursor-pointer flex gap-1">
-                      <BookOpen className="w-3 h-3 mt-1" />
-                      {p.caseName}
-                    </p>
-                    <p className="text-slate-500 text-xs mt-1 leading-snug">{p.relevance}</p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-muted-foreground">AI analyzing precedents...</p>
+      <div className="max-w-5xl w-full mx-auto px-4 py-6">
+        <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg font-semibold" data-testid="text-case-title">
+                State v. {caseData.applicantName}
+              </h1>
+              <Badge variant="outline" className="font-mono text-[10px]" data-testid="badge-case-number">
+                BAIL-{id.toString().padStart(4, "0")}
+              </Badge>
+              {isDecided && (
+                <Badge
+                  variant={caseData.status === "granted" ? "default" : "destructive"}
+                  className="text-[10px]"
+                  data-testid="badge-decision-status"
+                >
+                  {caseData.status === "granted" ? "Bail Granted" : "Bail Denied"}
+                </Badge>
               )}
             </div>
-          </Card>
+            <p className="text-sm text-muted-foreground" data-testid="text-case-details">
+              {caseData.offenseType} &middot; {caseData.detentionMonths} months in custody
+            </p>
+          </div>
+          {!isDecided && (
+            <Button
+              variant="outline"
+              onClick={() => analyzeCase.mutate(id)}
+              disabled={isAnalyzing}
+              data-testid="button-refresh-brief"
+              className="gap-2"
+            >
+              {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              Regenerate
+            </Button>
+          )}
         </div>
 
-        {/* Right: AI Bench Brief (9 cols) */}
-        <div className="col-span-12 lg:col-span-9 flex flex-col overflow-hidden h-full">
-          {isAnalyzing && !brief ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
-              <Loader2 className="w-10 h-10 animate-spin mb-4" />
-              <p>Generating Bench Brief...</p>
+        {order && showOrder && (
+          <Card className="p-6 mb-6 space-y-3 border-2" data-testid="card-order">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Judicial Order &middot; {order.date}
+              </p>
             </div>
-          ) : brief ? (
-            <div className="grid grid-cols-2 gap-6 h-full overflow-y-auto pb-20">
-              
-              {/* Bail Analysis Grid */}
-              <div className="col-span-2 grid grid-cols-2 gap-4">
-                <Card className={`p-5 border-l-4 ${brief.bailAnalysis.section479.status ? 'border-l-green-500' : 'border-l-red-500'}`}>
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-slate-900">Section 479 Compliance</h3>
-                    <Badge variant={brief.bailAnalysis.section479.status ? "success" : "destructive"}>
-                      {brief.bailAnalysis.section479.status ? "COMPLIANT" : "NON-COMPLIANT"}
+            <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90" data-testid="text-order-content">
+              {order.text}
+            </div>
+          </Card>
+        )}
+
+        {order && !showOrder && (
+          <Card className="p-4 mb-6 flex items-center justify-between gap-4 flex-wrap" data-testid="card-order-banner">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Order has been generated ({order.date}).
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => setShowOrder(true)} data-testid="button-view-order">
+              View Order
+            </Button>
+          </Card>
+        )}
+
+        {isAnalyzing && !brief ? (
+          <div className="flex flex-col items-center justify-center py-20 space-y-3" data-testid="status-analyzing">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Generating bench brief...</p>
+          </div>
+        ) : brief ? (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="p-5 space-y-4" data-testid="card-case-snapshot">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Case Snapshot</p>
+                <div className="space-y-3 text-sm">
+                  <Row label="Accused" value={brief.caseSnapshot.accused} testId="row-accused" />
+                  <Row label="Offense" value={brief.caseSnapshot.offense} testId="row-offense" />
+                  <Row label="Max Sentence" value={brief.caseSnapshot.maxSentence} testId="row-sentence" />
+                  <Row label="Detained" value={brief.caseSnapshot.detained} testId="row-detained" />
+                  <Row label="FIR Date" value={brief.caseSnapshot.firDate} testId="row-fir-date" />
+                  {brief.caseSnapshot.chargesheetStatus && (
+                    <Row label="Chargesheet" value={brief.caseSnapshot.chargesheetStatus} testId="row-chargesheet" />
+                  )}
+                </div>
+              </Card>
+
+              <Card className="p-5 space-y-4" data-testid="card-section479">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">S.479 Assessment</p>
+                <div className="space-y-2">
+                  {brief.bailAnalysis.section479.points?.map((point: string, i: number) => (
+                    <div key={i} className="flex items-start gap-2 text-sm" data-testid={`s479-point-${i}`}>
+                      <span className="text-muted-foreground mt-0.5 shrink-0">
+                        {brief.bailAnalysis.section479.status ? (
+                          <Check className="w-3.5 h-3.5 text-green-600" />
+                        ) : i === (brief.bailAnalysis.section479.points?.length || 1) - 1 ? (
+                          <X className="w-3.5 h-3.5 text-red-500" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5 text-green-600" />
+                        )}
+                      </span>
+                      <span className="text-foreground/80">{point}</span>
+                    </div>
+                  )) || (
+                    <p className="text-sm text-foreground/80" data-testid="s479-reason">{brief.bailAnalysis.section479.reason}</p>
+                  )}
+                  <div className="pt-2">
+                    <Badge variant={brief.bailAnalysis.section479.status ? "default" : "outline"} className="text-[10px]" data-testid="badge-s479-status">
+                      {brief.bailAnalysis.section479.status ? "Eligible" : "Not yet eligible"}
                     </Badge>
                   </div>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    {brief.bailAnalysis.section479.reason}
-                  </p>
-                </Card>
+                </div>
+              </Card>
+            </div>
 
-                <Card className="p-5 border-l-4 border-l-blue-500">
-                  <h3 className="font-semibold text-slate-900 mb-3">Risk Assessment (Triple Test)</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Flight Risk</span>
-                      <span className="font-medium">{brief.bailAnalysis.section480.flightRisk}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Tampering</span>
-                      <span className="font-medium">{brief.bailAnalysis.section480.tampering}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Offense Gravity</span>
-                      <span className="font-medium">{brief.bailAnalysis.section480.gravity}</span>
-                    </div>
+            <Card className="p-5 space-y-4" data-testid="card-section480">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">S.480 Risk Assessment (Triple Test)</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <RiskItem label="Offense Gravity" value={brief.bailAnalysis.section480.gravity} testId="risk-gravity" />
+                <RiskItem label="Flight Risk" value={brief.bailAnalysis.section480.flightRisk} testId="risk-flight" />
+                <RiskItem label="Evidence Tampering" value={brief.bailAnalysis.section480.tampering} testId="risk-tampering" />
+                <RiskItem label="Public Safety" value={brief.bailAnalysis.section480.safety} testId="risk-safety" />
+              </div>
+            </Card>
+
+            <Card className="p-5 space-y-4" data-testid="card-precedents">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-muted-foreground" />
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Precedent Map</p>
+              </div>
+              <div className="divide-y">
+                {brief.precedents.map((p, i) => (
+                  <div key={i} className="py-3 first:pt-0 last:pb-0" data-testid={`precedent-${i}`}>
+                    <p className="text-sm font-medium text-foreground">
+                      {p.caseName} {p.year ? `(${p.year})` : ""}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-0.5">{p.relevance}</p>
                   </div>
-                </Card>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="p-6 space-y-4 bg-card border" data-testid="card-recommendation">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Recommendation</p>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`text-xl font-semibold ${
+                        brief.recommendation.decision === "GRANT" ? "text-green-600" : "text-red-600"
+                      }`}
+                      data-testid="text-recommendation"
+                    >
+                      {brief.recommendation.decision === "GRANT" ? "Grant Bail" : "Deny Bail"}
+                    </span>
+                    <Badge variant="outline" className="text-[10px]" data-testid="badge-confidence">
+                      {brief.recommendation.confidence} confidence
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl" data-testid="text-reasoning">
+                    {brief.recommendation.reasoning}
+                  </p>
+                </div>
               </div>
 
-              {/* Final Recommendation - Hero Card */}
-              <motion.div 
-                className="col-span-2"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2 }}
-              >
-                <Card className="bg-slate-900 text-slate-100 border-none shadow-xl overflow-hidden relative">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-slate-800 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2 opacity-50" />
-                  
-                  <div className="p-8 relative z-10 flex flex-col md:flex-row gap-8">
-                    <div className="flex-1 space-y-4">
-                      <div>
-                        <span className="text-xs font-bold text-slate-400 tracking-widest uppercase">AI Recommendation</span>
-                        <div className="flex items-center gap-3 mt-1">
-                          <h2 className={`text-3xl font-display font-bold ${brief.recommendation.decision === 'GRANT' ? 'text-green-400' : 'text-red-400'}`}>
-                            {brief.recommendation.decision} BAIL
-                          </h2>
-                          <Badge variant="outline" className="text-slate-300 border-slate-700 bg-slate-800/50">
-                            {brief.recommendation.confidence} CONFIDENCE
-                          </Badge>
-                        </div>
-                      </div>
-                      
-                      <p className="text-slate-300 leading-relaxed text-lg font-light">
-                        {brief.recommendation.reasoning}
-                      </p>
-
-                      <div className="pt-4 space-y-2">
-                        <span className="text-xs text-slate-500 uppercase">Suggested Conditions</span>
-                        <div className="flex flex-wrap gap-2">
-                          {brief.recommendation.conditions.map((c, i) => (
-                            <Badge key={i} variant="secondary" className="bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700">
-                              {c}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3 justify-center min-w-[200px]">
-                      <Button className="w-full h-14 text-lg bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-900/20">
-                        <Check className="mr-2 w-5 h-5" /> Grant Bail
-                      </Button>
-                      <Button className="w-full h-14 text-lg bg-red-900/50 hover:bg-red-900 text-red-200 border border-red-900/50">
-                        <X className="mr-2 w-5 h-5" /> Deny Bail
-                      </Button>
-                    </div>
+              {brief.recommendation.conditions && brief.recommendation.conditions.length > 0 && (
+                <div className="space-y-2 pt-2" data-testid="list-conditions">
+                  <p className="text-xs font-medium text-muted-foreground">Suggested Conditions</p>
+                  <div className="flex flex-wrap gap-2">
+                    {brief.recommendation.conditions.map((c, i) => (
+                      <Badge key={i} variant="secondary" className="text-xs" data-testid={`badge-condition-${i}`}>
+                        {c}
+                      </Badge>
+                    ))}
                   </div>
-                </Card>
-              </motion.div>
+                </div>
+              )}
 
-            </div>
-          ) : null}
-        </div>
+              {!isDecided ? (
+                <div className="flex gap-3 pt-2 flex-wrap">
+                  <Button
+                    onClick={() => handleDecision("granted")}
+                    disabled={isDeciding}
+                    data-testid="button-grant-bail"
+                  >
+                    {isDeciding ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                    Grant Bail
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleDecision("denied")}
+                    disabled={isDeciding}
+                    data-testid="button-deny-bail"
+                  >
+                    {isDeciding ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <X className="w-4 h-4 mr-2" />}
+                    Deny Bail
+                  </Button>
+                  {brief.draftOrder && (
+                    <Button
+                      variant="ghost"
+                      className="ml-auto"
+                      onClick={() => setShowOrder(true)}
+                      data-testid="button-draft-order"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      View Draft
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="pt-2 flex items-center gap-3 flex-wrap">
+                  <Badge
+                    variant={caseData.status === "granted" ? "default" : "destructive"}
+                    data-testid="badge-final-decision"
+                  >
+                    Bail {caseData.status === "granted" ? "Granted" : "Denied"}
+                  </Badge>
+                  {order && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowOrder(!showOrder)}
+                      data-testid="button-toggle-order"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      {showOrder ? "Hide Order" : "View Order"}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </Card>
+
+            {brief.draftOrder && !isDecided && showOrder && (
+              <Card className="p-5 space-y-3" data-testid="card-draft-order">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-muted-foreground" />
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Draft Order</p>
+                </div>
+                <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap" data-testid="text-draft-order">
+                  {brief.draftOrder}
+                </p>
+              </Card>
+            )}
+          </div>
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+function Row({ label, value, testId }: { label: string; value: string; testId: string }) {
+  return (
+    <div className="flex justify-between gap-4" data-testid={testId}>
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="text-foreground text-right">{value}</span>
+    </div>
+  );
+}
+
+function RiskItem({ label, value, testId }: { label: string; value: string; testId: string }) {
+  const level = value.split(" ")[0]?.toUpperCase() || "";
+  const detail = value.includes("-") ? value.split("-").slice(1).join("-").trim() : value;
+
+  return (
+    <div className="space-y-1" data-testid={testId}>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <div className="flex items-center gap-2">
+        <span
+          className={`inline-block w-2 h-2 rounded-full shrink-0 ${
+            level === "LOW" ? "bg-green-500" : level === "MODERATE" ? "bg-yellow-500" : "bg-red-500"
+          }`}
+        />
+        <span className="text-sm font-medium">{level}</span>
+      </div>
+      {detail !== value && <p className="text-xs text-muted-foreground leading-snug">{detail}</p>}
     </div>
   );
 }

@@ -78,3 +78,23 @@ export function useAnalyzeCase() {
     },
   });
 }
+
+export function useDecideCase() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, decision }: { id: number; decision: "granted" | "denied" }) => {
+      const url = buildUrl(api.cases.decide.path, { id });
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision }),
+      });
+      if (!res.ok) throw new Error("Decision failed");
+      return validateResponse(api.cases.decide.responses[200], await res.json());
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [api.cases.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.cases.get.path, data.id] });
+    },
+  });
+}

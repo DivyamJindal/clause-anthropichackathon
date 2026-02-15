@@ -51,16 +51,18 @@ export interface BenchBrief {
     maxSentence: string;
     detained: string;
     firDate: string;
+    chargesheetStatus?: string;
   };
   bailAnalysis: {
-    section479: { status: boolean; reason: string };
+    section479: { status: boolean; reason?: string; points?: string[] };
     section480: { gravity: string; flightRisk: string; tampering: string; safety: string };
   };
-  precedents: { caseName: string; relevance: string }[];
+  precedents: { caseName: string; year?: string; relevance: string }[];
   recommendation: {
     decision: "GRANT" | "DENY";
     confidence: "HIGH" | "MEDIUM" | "LOW";
     reasoning: string;
     conditions: string[];
   };
+  draftOrder?: string;
 }

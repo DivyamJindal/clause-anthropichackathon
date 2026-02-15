@@ -83,6 +83,15 @@ export const api = {
         200: z.custom<typeof cases.$inferSelect>(),
         404: errorSchemas.notFound,
       },
+    },
+    decide: {
+      method: 'POST' as const,
+      path: '/api/cases/:id/decide' as const,
+      input: z.object({ decision: z.enum(["granted", "denied"]) }),
+      responses: {
+        200: z.custom<typeof cases.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
     }
   }
 };
