@@ -367,7 +367,7 @@ export default function ResolvePage() {
                 </h2>
               </div>
               <p className="text-muted-foreground leading-relaxed" data-testid="text-resolve-subtitle">
-                Describe your cheque bounce or legal dispute. I'll calculate your deadlines under Section 138 NI Act, draft your demand notice, and propose a fair settlement.
+                Describe your dispute or upload documents — cheque images, bank memos, legal notices. I'll analyze them, calculate your deadlines, draft your demand notice, and guide you step by step.
               </p>
             </div>
 
@@ -390,6 +390,17 @@ export default function ResolvePage() {
                   {example}
                 </button>
               ))}
+            </div>
+
+            <div className="pt-2">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto"
+                data-testid="button-upload-hint"
+              >
+                <Paperclip className="w-4 h-4" />
+                <span>Or upload a cheque image, bank memo, or legal notice</span>
+              </button>
             </div>
           </div>
         </div>
