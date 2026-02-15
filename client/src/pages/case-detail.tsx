@@ -733,15 +733,30 @@ function BriefContent({
   handleDecision: (d: "granted" | "denied") => void;
   onCitationClick?: (documentId: number, pageNumber: number) => void;
 }) {
+  const orderRef = useRef<HTMLDivElement>(null);
+
+  const handleViewOrder = useCallback(() => {
+    setShowOrder(true);
+    setTimeout(() => {
+      orderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }, [setShowOrder]);
+
   return (
     <div className="max-w-3xl">
       {order && showOrder && (
-        <div className="mb-8 pb-6 border-b space-y-3" data-testid="card-order">
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-muted-foreground" />
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Judicial Order &middot; {order.date}
-            </p>
+        <div ref={orderRef} id="judicial-order" className="mb-8 pb-6 border-b space-y-3" data-testid="card-order">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Judicial Order &middot; {order.date}
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setShowOrder(false)} data-testid="button-hide-order">
+              <X className="w-3.5 h-3.5 mr-1.5" />
+              Hide
+            </Button>
           </div>
           <div className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90" data-testid="text-order-content">
             {order.text}
@@ -757,7 +772,7 @@ function BriefContent({
               Order has been generated ({order.date}).
             </p>
           </div>
-          <Button variant="outline" onClick={() => setShowOrder(true)} data-testid="button-view-order">
+          <Button variant="outline" onClick={handleViewOrder} data-testid="button-view-order">
             View Order
           </Button>
         </div>
@@ -915,7 +930,13 @@ function BriefContent({
                   {order && (
                     <Button
                       variant="outline"
-                      onClick={() => setShowOrder(!showOrder)}
+                      onClick={() => {
+                        if (showOrder) {
+                          setShowOrder(false);
+                        } else {
+                          handleViewOrder();
+                        }
+                      }}
                       data-testid="button-toggle-order"
                     >
                       <FileText className="w-4 h-4 mr-2" />

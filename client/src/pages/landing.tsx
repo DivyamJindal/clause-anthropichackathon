@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowRight, Scale, FileText, Briefcase, Brain, Shield, Clock, Zap, ChevronRight, Sparkles, Eye, BookOpen, Users } from "lucide-react";
+import { ArrowRight, Scale, FileText, Briefcase, Brain, Shield, Clock, Zap, ChevronRight, Sparkles, Eye, BookOpen, Users, Car, Home, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -10,8 +10,11 @@ import { motion, useInView } from "framer-motion";
 
 const categories = [
   { label: "Cheque Bounce", icon: FileText },
-  { label: "Property", icon: Scale },
+  { label: "Property", icon: Home },
   { label: "Employment", icon: Briefcase },
+  { label: "Motor Accident", icon: Car },
+  { label: "Domestic Violence", icon: Shield },
+  { label: "Family & Divorce", icon: Heart },
 ];
 
 function useScrollReveal(threshold = 0.15) {
