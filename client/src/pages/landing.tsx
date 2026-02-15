@@ -218,7 +218,7 @@ export default function Landing() {
                   />
                   <Button
                     onClick={handleSubmit}
-                    className="bg-[hsl(15,80%,55%)] hover:bg-[hsl(15,80%,50%)] text-white rounded-lg px-5 text-sm font-medium shrink-0 no-default-hover-elevate"
+                    className="bg-[hsl(15,80%,55%)] border-[hsl(15,80%,45%)] text-white rounded-lg px-5 text-sm font-medium shrink-0"
                     data-testid="button-resolve"
                   >
                     Ask CLAUSE
@@ -590,7 +590,7 @@ export default function Landing() {
             <div className="flex items-center justify-center gap-3 flex-wrap pt-2">
               <Link href="/resolve">
                 <Button
-                  className="bg-[hsl(15,80%,55%)] hover:bg-[hsl(15,80%,50%)] text-white px-6 no-default-hover-elevate gap-2"
+                  className="bg-[hsl(15,80%,55%)] border-[hsl(15,80%,45%)] text-white px-6 gap-2"
                   data-testid="button-resolve-bottom"
                 >
                   I have a dispute
@@ -600,7 +600,7 @@ export default function Landing() {
               <Link href="/bench">
                 <Button
                   variant="outline"
-                  className="border-[hsl(70,8%,22%)] text-[hsl(40,15%,80%)] gap-2 no-default-hover-elevate"
+                  className="border-[hsl(70,8%,22%)] text-[hsl(40,15%,80%)] gap-2"
                   data-testid="button-bench"
                 >
                   Judge's Bench
