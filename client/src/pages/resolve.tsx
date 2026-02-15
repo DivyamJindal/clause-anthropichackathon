@@ -1,16 +1,145 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, Brain, ChevronDown, Gavel, Check, FileText } from "lucide-react";
+import { Send, Loader2, Brain, ChevronDown, Gavel, Check, FileText, Paperclip } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SEO } from "@/components/seo";
 import { Link } from "wouter";
 import { DeadlineTimeline } from "@/components/deadline-timeline";
+import { useToast } from "@/hooks/use-toast";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
   thinking?: string;
+  attachments?: { name: string; type: string; preview?: string }[];
+}
+
+function parseInteractiveQuestion(content: string) {
+  const pattern = /---QUESTION---\s*([\s\S]*?)\s*---OPTIONS---\s*([\s\S]*?)\s*---END---/;
+  const match = content.match(pattern);
+  if (!match) return null;
+
+  const fullMatch = match[0];
+  const questionText = match[1].trim();
+  const optionsRaw = match[2].trim();
+  const options = optionsRaw.split("\n").map(o => o.trim()).filter(o => o.length > 0);
+
+  const idx = content.indexOf(fullMatch);
+  const beforeQuestion = content.slice(0, idx).trim();
+  const afterQuestion = content.slice(idx + fullMatch.length).trim();
+
+  return { beforeQuestion, questionText, options, afterQuestion };
+}
+
+function stripInteractiveMarkers(content: string): string {
+  return content
+    .replace(/---QUESTION---/g, "")
+    .replace(/---OPTIONS---/g, "")
+    .replace(/---END---/g, "")
+    .trim();
+}
+
+const markdownComponents = {
+  h1: ({ children, ...props }: any) => <h1 className="text-lg font-semibold text-foreground mt-4 mb-2" {...props}>{children}</h1>,
+  h2: ({ children, ...props }: any) => <h2 className="text-base font-semibold text-foreground mt-4 mb-2" {...props}>{children}</h2>,
+  h3: ({ children, ...props }: any) => <h3 className="text-sm font-semibold text-foreground mt-3 mb-1" {...props}>{children}</h3>,
+  p: ({ children, ...props }: any) => <p className="text-sm text-foreground/90 leading-relaxed mb-2" {...props}>{children}</p>,
+  ul: ({ children, ...props }: any) => <ul className="text-sm text-foreground/90 list-disc pl-4 space-y-1 mb-2" {...props}>{children}</ul>,
+  ol: ({ children, ...props }: any) => <ol className="text-sm text-foreground/90 list-decimal pl-4 space-y-1 mb-2" {...props}>{children}</ol>,
+  li: ({ children, ...props }: any) => <li className="leading-relaxed" {...props}>{children}</li>,
+  strong: ({ children, ...props }: any) => <strong className="font-semibold text-foreground" {...props}>{children}</strong>,
+  a: ({ children, ...props }: any) => <a className="text-primary underline" {...props}>{children}</a>,
+  code: ({ node, children, className, ...props }: any) => {
+    const isBlock = className?.includes("language-");
+    if (!isBlock) {
+      return <code className="bg-muted px-1 py-0.5 rounded text-xs" {...props}>{children}</code>;
+    }
+    return <code className={className} {...props}>{children}</code>;
+  },
+  pre: ({ children, ...props }: any) => <pre className="bg-muted p-3 rounded-md overflow-x-auto text-xs mb-2" {...props}>{children}</pre>,
+  table: ({ children, ...props }: any) => <table className="w-full border-collapse text-sm mb-2" {...props}>{children}</table>,
+  thead: ({ children, ...props }: any) => <thead {...props}>{children}</thead>,
+  tbody: ({ children, ...props }: any) => <tbody {...props}>{children}</tbody>,
+  tr: ({ children, ...props }: any) => <tr {...props}>{children}</tr>,
+  th: ({ children, ...props }: any) => <th className="border border-border px-3 py-1.5 text-left font-medium bg-muted/50" {...props}>{children}</th>,
+  td: ({ children, ...props }: any) => <td className="border border-border px-3 py-1.5" {...props}>{children}</td>,
+  blockquote: ({ children, ...props }: any) => <blockquote className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground text-sm mb-2" {...props}>{children}</blockquote>,
+};
+
+function MarkdownContent({ content }: { content: string }) {
+  if (!content) return null;
+
+  const legalNoticePattern = /(?:^|\n)((?:LEGAL\s*NOTICE|DEMAND\s*NOTICE|NOTICE\s*UNDER\s*SECTION)[\s\S]*?)(?=\n\n(?:[A-Z]|$)|$)/i;
+  const noticeMatch = content.match(legalNoticePattern);
+
+  let beforeNotice = content;
+  let noticeContent: string | null = null;
+  let afterNotice = "";
+
+  if (noticeMatch && noticeMatch[1] && noticeMatch[1].length > 100) {
+    const idx = content.indexOf(noticeMatch[1]);
+    beforeNotice = content.slice(0, idx);
+    noticeContent = noticeMatch[1].trim();
+    afterNotice = content.slice(idx + noticeMatch[1].length);
+  }
+
+  return (
+    <>
+      {beforeNotice && (
+        <div className="text-sm">
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            {beforeNotice}
+          </ReactMarkdown>
+        </div>
+      )}
+      {noticeContent && <LegalDocumentPreview content={noticeContent} />}
+      {afterNotice && (
+        <div className="text-sm">
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            {afterNotice}
+          </ReactMarkdown>
+        </div>
+      )}
+    </>
+  );
+}
+
+function InteractiveMessage({ content, onOptionSelect }: { content: string; onOptionSelect: (option: string) => void }) {
+  const parsed = parseInteractiveQuestion(content);
+
+  if (!parsed) {
+    return <MarkdownContent content={content} />;
+  }
+
+  return (
+    <div>
+      {parsed.beforeQuestion && <MarkdownContent content={parsed.beforeQuestion} />}
+      <div className="mt-3 space-y-3" data-testid="interactive-question">
+        <div className="text-sm font-medium text-foreground">
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            {parsed.questionText}
+          </ReactMarkdown>
+        </div>
+        <div className="flex flex-col gap-2">
+          {parsed.options.map((option, idx) => (
+            <Button
+              key={idx}
+              variant="outline"
+              className="justify-start text-left text-sm whitespace-normal h-auto py-2.5 px-4"
+              onClick={() => onOptionSelect(option)}
+              data-testid={`button-option-${idx}`}
+            >
+              {option}
+            </Button>
+          ))}
+        </div>
+      </div>
+      {parsed.afterQuestion && <MarkdownContent content={parsed.afterQuestion} />}
+    </div>
+  );
 }
 
 export default function ResolvePage() {
@@ -22,6 +151,7 @@ export default function ResolvePage() {
   const [escalatedCaseId, setEscalatedCaseId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { toast } = useToast();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -31,11 +161,10 @@ export default function ResolvePage() {
     scrollToBottom();
   }, [messages]);
 
-  const sendMessage = async () => {
-    const trimmed = input.trim();
-    if (!trimmed || isStreaming) return;
+  const sendMessageWithContent = async (content: string) => {
+    if (!content.trim() || isStreaming) return;
 
-    const userMessage: Message = { role: "user", content: trimmed };
+    const userMessage: Message = { role: "user", content: content.trim() };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInput("");
@@ -57,7 +186,7 @@ export default function ResolvePage() {
       const decoder = new TextDecoder();
       let accumulatedThinking = "";
       let accumulatedContent = "";
-      let isThinking = false;
+      let isThinkingBlock = false;
 
       if (reader) {
         while (true) {
@@ -72,7 +201,7 @@ export default function ResolvePage() {
               try {
                 const data = JSON.parse(line.slice(6));
                 if (data.type === "thinking_start") {
-                  isThinking = true;
+                  isThinkingBlock = true;
                 } else if (data.type === "thinking" && data.content) {
                   accumulatedThinking += data.content;
                   setMessages((prev) => {
@@ -85,7 +214,7 @@ export default function ResolvePage() {
                     return updated;
                   });
                 } else if (data.type === "thinking_end") {
-                  isThinking = false;
+                  isThinkingBlock = false;
                 } else if (data.type === "text_start") {
                   // text block starting
                 } else if (data.content && !data.type) {
@@ -120,17 +249,19 @@ export default function ResolvePage() {
     }
   };
 
+  const sendMessage = async () => {
+    await sendMessageWithContent(input);
+  };
+
   const escalateToCourtHandler = async () => {
     setIsEscalating(true);
     try {
       const firstUserMessage = messages.find(m => m.role === "user");
       const allContent = messages.map(m => m.content).join("\n");
       
-      // Try to extract a name from user messages
       const nameMatch = allContent.match(/(?:my name is|i am|i'm)\s+([A-Z][a-z]+ [A-Z][a-z]+)/i);
       const applicantName = nameMatch ? nameMatch[1] : "Complainant";
       
-      // Detect offense type from conversation
       const lowerContent = allContent.toLowerCase();
       let offenseType = "Civil Dispute";
       if (lowerContent.includes("138") || lowerContent.includes("cheque") || lowerContent.includes("bounce")) {
@@ -141,7 +272,6 @@ export default function ResolvePage() {
         offenseType = "Rental Dispute (Model Tenancy Act)";
       }
       
-      // Build summary from the conversation
       const summary = messages.slice(0, 6).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.content.slice(0, 500)}`).join("\n\n");
 
       const res = await fetch("/api/escalate", {
@@ -173,6 +303,7 @@ export default function ResolvePage() {
   };
 
   const isEmpty = messages.length === 0;
+  const lastAssistantIndex = messages.reduce((acc, msg, idx) => msg.role === "assistant" ? idx : acc, -1);
 
   return (
     <div className="flex flex-col h-full">
@@ -236,9 +367,14 @@ export default function ResolvePage() {
                   {msg.role === "assistant" ? (
                     <div>
                       {msg.thinking && <ThinkingBlock thinking={msg.thinking} />}
-                      <div className="prose prose-sm max-w-none">
-                        <AssistantContent content={msg.content} />
-                      </div>
+                      {i === lastAssistantIndex && !isStreaming ? (
+                        <InteractiveMessage
+                          content={msg.content}
+                          onOptionSelect={(option) => sendMessageWithContent(option)}
+                        />
+                      ) : (
+                        <MarkdownContent content={stripInteractiveMarkers(msg.content)} />
+                      )}
                     </div>
                   ) : (
                     <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
@@ -308,6 +444,15 @@ export default function ResolvePage() {
 
       <div className="sticky bottom-0 bg-background border-t border-border px-4 py-3">
         <div className="max-w-3xl mx-auto flex items-end gap-2">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => toast({ title: "Coming soon", description: "File attachments will be available soon." })}
+            data-testid="button-attach-file"
+            className="shrink-0"
+          >
+            <Paperclip className="w-4 h-4" />
+          </Button>
           <Textarea
             ref={textareaRef}
             value={input}
