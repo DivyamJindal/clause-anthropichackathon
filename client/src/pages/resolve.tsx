@@ -185,9 +185,14 @@ export default function ResolvePage() {
         <div className="flex-1 flex flex-col items-center justify-center px-6 pb-32">
           <div className="text-center space-y-6 max-w-md">
             <div className="space-y-3">
-              <h2 className="text-2xl font-semibold tracking-tight" data-testid="text-resolve-heading">
-                Resolve your dispute
-              </h2>
+              <div className="flex items-center justify-center gap-2">
+                <svg viewBox="0 0 24 24" className="w-6 h-6 text-primary" fill="currentColor" data-testid="icon-sparkle">
+                  <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
+                </svg>
+                <h2 className="text-2xl font-semibold tracking-tight" data-testid="text-resolve-heading">
+                  Resolve your dispute
+                </h2>
+              </div>
               <p className="text-muted-foreground leading-relaxed" data-testid="text-resolve-subtitle">
                 Describe your cheque bounce or legal dispute. I'll calculate your deadlines under Section 138 NI Act, draft your demand notice, and propose a fair settlement.
               </p>
@@ -206,7 +211,7 @@ export default function ResolvePage() {
                     setInput(example);
                     textareaRef.current?.focus();
                   }}
-                  className="w-full text-left px-4 py-3 rounded-md glass text-sm text-foreground hover-elevate active-elevate-2 transition-colors"
+                  className="w-full text-left px-4 py-3 rounded-md border border-border text-sm text-foreground hover-elevate active-elevate-2 transition-colors"
                   data-testid={`button-example-${idx}`}
                 >
                   {example}
@@ -254,7 +259,7 @@ export default function ResolvePage() {
           )}
           {messages.length >= 2 && !isStreaming && !escalated && (
             <div className="flex justify-start px-1 py-2" data-testid="escalate-section">
-              <div className="flex items-center gap-3 px-4 py-3 rounded-lg glass max-w-[85%]">
+              <div className="flex items-center gap-3 px-4 py-3 rounded-md border border-border bg-card max-w-[85%]">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">Settlement not working?</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -280,7 +285,7 @@ export default function ResolvePage() {
           )}
           {escalated && escalatedCaseId && (
             <div className="flex justify-start px-1 py-2" data-testid="escalated-confirmation">
-              <div className="px-4 py-3 rounded-lg glass border-primary/20 max-w-[85%] space-y-2">
+              <div className="px-4 py-3 rounded-md border border-primary/20 bg-card max-w-[85%] space-y-2">
                 <div className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-primary" />
                   <p className="text-sm font-medium text-foreground">Case filed in court</p>
@@ -301,7 +306,7 @@ export default function ResolvePage() {
         </div>
       )}
 
-      <div className="sticky bottom-0 bg-background/60 backdrop-blur-xl border-t border-border/30 px-4 py-3">
+      <div className="sticky bottom-0 bg-background border-t border-border px-4 py-3">
         <div className="max-w-3xl mx-auto relative">
           <Textarea
             ref={textareaRef}
@@ -350,7 +355,7 @@ function ThinkingIndicator({ hasThinking }: { hasThinking: boolean }) {
   }, [hasThinking]);
 
   return (
-    <div className="glass rounded-lg px-4 py-3 space-y-2 max-w-[300px]" data-testid="indicator-thinking">
+    <div className="rounded-md border border-border bg-card px-4 py-3 space-y-2 max-w-[300px]" data-testid="indicator-thinking">
       <div className="flex items-center gap-3">
         <div className="relative">
           <div className="absolute inset-0 bg-primary/30 rounded-full animate-pulse-ring" />
@@ -384,7 +389,7 @@ function ThinkingBlock({ thinking }: { thinking: string }) {
     <div className="mb-3">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 text-xs text-muted-foreground hover-elevate active-elevate-2 px-2 py-1.5 rounded-md transition-colors glass-subtle"
+        className="flex items-center gap-2 text-xs text-muted-foreground hover-elevate active-elevate-2 px-2 py-1.5 rounded-md transition-colors bg-muted/50"
         data-testid="button-toggle-thinking"
       >
         <Brain className="w-3.5 h-3.5 text-primary" />
@@ -402,7 +407,7 @@ function ThinkingBlock({ thinking }: { thinking: string }) {
 
 function LegalDocumentPreview({ content }: { content: string }) {
   return (
-    <div className="my-4 glass-strong rounded-md" data-testid="card-legal-document">
+    <div className="my-4 border border-border bg-card rounded-md" data-testid="card-legal-document">
       <div className="px-5 py-3 border-b border-border/30 flex items-center gap-2">
         <FileText className="w-4 h-4 text-primary" />
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Legal Notice Draft</span>

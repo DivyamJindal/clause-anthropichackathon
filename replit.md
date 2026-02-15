@@ -28,18 +28,19 @@ Preferred communication style: Simple, everyday language.
 - **Path Aliases**: `@/` → `client/src/`, `@shared/` → `shared/`, `@assets/` → `attached_assets/`
 
 **Key Pages:**
-- `/` — Glassmorphic landing page with animated impact stats, before/after comparison, and Ramesh's 6-step story timeline
-- `/resolve` — Chat-based dispute resolution with Claude's extended thinking, collapsible reasoning display, deadline timeline, legal notice document preview, and escalation to court
-- `/bench` — Judge dashboard listing bail applications with glass-styled case list
-- `/bench/:id` — Individual case detail with AI-generated bench brief and glass recommendation card
+- `/` — Anthropic-style landing with dark hero section, serif heading "Meet your legal thinking partner", centered input with "Ask CLAUSE" button, category pills, flat stats, and Ramesh's story timeline
+- `/resolve` — Claude-style chat interface with sparkle icon, collapsible reasoning display, deadline timeline, legal notice document preview, and escalation to court
+- `/bench` — Judge dashboard listing bail applications with clean bordered case list
+- `/bench/:id` — Individual case detail with AI-generated bench brief and recommendation card
 
-**Layout**: App uses a collapsible sidebar (`AppSidebar`) with a glassmorphic header (backdrop-blur). Main content area scrolls independently.
+**Layout**: App uses a collapsible sidebar (`AppSidebar`) with sparkle logo, flat navigation, user profile footer with "Powered by Claude". Main content area scrolls independently.
 
-**UI System:**
-- Glassmorphic utilities: `.glass`, `.glass-strong`, `.glass-subtle` (backdrop-blur with semi-transparent backgrounds)
-- Animations: `animate-gradient`, `animate-float`, `animate-pulse-ring`, `animate-shimmer`
-- Gradient orbs for ambient background depth
-- All glass effects work in both light and dark mode via semantic CSS variables
+**Design System (Anthropic-inspired):**
+- Light mode: warm cream/beige (40 33% 96%) background, pure white cards, coral primary (15 80% 55%)
+- Dark mode: deep olive/forest (75 15% 8%) background, coral primary (15 80% 58%)
+- Clean flat surfaces with subtle borders — no glass/blur effects
+- Serif headings for hero sections, sans-serif body text
+- Sparkle/asterisk logo icon matching Anthropic branding
 
 ### Backend
 - **Framework**: Express.js on Node.js with TypeScript
@@ -97,7 +98,7 @@ Preferred communication style: Simple, everyday language.
 4. **JSON columns for AI output**: Analysis results stored as JSONB in PostgreSQL, allowing flexible AI output structures without schema migrations
 5. **Extended Thinking**: Claude's extended thinking mode (budget_tokens: 10000) streams separately from text, shown in collapsible "View legal reasoning" sections for full transparency
 6. **Resolve-to-Bench Pipeline**: Disputes can escalate to court cases, creating entries in the judge's docket with automatic offense detection from chat context
-7. **Glassmorphic Design**: Frosted glass panels with backdrop-filter blur create depth and premium visual hierarchy; gradient orbs add ambient color
+7. **Anthropic-Inspired Design**: Clean flat surfaces with warm earth tones matching Anthropic's Claude UI — cream/beige light mode, deep olive dark mode, coral accents, serif hero headings, sparkle logo
 
 ## External Dependencies
 

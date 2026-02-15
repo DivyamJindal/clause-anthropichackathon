@@ -5,7 +5,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuItem,
@@ -25,15 +24,13 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="p-4 pb-2">
         <Link href="/">
           <LogoFull className="cursor-pointer" />
         </Link>
-        <p className="text-[11px] text-muted-foreground mt-1">AI Law Clerk for India</p>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
@@ -54,9 +51,16 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4">
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400" />
-          <p className="text-[10px] text-muted-foreground">Powered by Claude</p>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+              <span className="text-[10px] font-medium text-primary">DJ</span>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-sidebar-foreground">Demo User</p>
+              <p className="text-[10px] text-muted-foreground">Powered by Claude</p>
+            </div>
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>

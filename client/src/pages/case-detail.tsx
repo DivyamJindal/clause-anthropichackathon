@@ -224,7 +224,7 @@ export default function CaseDetail() {
               </div>
             </Card>
 
-            <Card className="p-6 space-y-4 glass-strong" data-testid="card-recommendation">
+            <Card className="p-6 space-y-4" data-testid="card-recommendation">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Law Clerk's Assessment</p>

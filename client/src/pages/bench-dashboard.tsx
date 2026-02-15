@@ -27,7 +27,7 @@ export default function BenchDashboard() {
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="glass rounded-md divide-y divide-border/50" data-testid="list-cases">
+          <div className="rounded-md border border-border divide-y divide-border" data-testid="list-cases">
             {cases?.map((c) => (
               <Link key={c.id} href={`/bench/${c.id}`}>
                 <div
