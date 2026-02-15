@@ -103,7 +103,7 @@ export default function ResolvePage() {
     <div className="flex flex-col h-full">
       <SEO
         title="Resolve Dispute - CLAUSE"
-        description="Describe your legal dispute in Hindi, English, or Kannada. Get instant AI-powered legal analysis, deadlines, and draft notices."
+        description="Resolve cheque bounce and legal disputes with AI-powered analysis. Get instant deadlines under Section 138 NI Act, draft demand notices, and settlement proposals."
       />
 
       {isEmpty ? (
@@ -114,16 +114,16 @@ export default function ResolvePage() {
                 Resolve your dispute
               </h2>
               <p className="text-muted-foreground leading-relaxed" data-testid="text-resolve-subtitle">
-                Describe your legal situation in Hindi, English, or Kannada. I'll analyze your rights, calculate deadlines, and draft documents for you.
+                Describe your cheque bounce or legal dispute. I'll calculate your deadlines under Section 138 NI Act, draft your demand notice, and propose a fair settlement.
               </p>
             </div>
 
             <div className="space-y-2 text-left">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider" data-testid="text-examples-label">Try saying</p>
               {[
-                "My cheque of \u20B93 lakh bounced 2 weeks ago",
-                "My landlord won't return my security deposit",
-                "I bought a defective product worth \u20B915,000",
+                "I received a cheque of ₹3 lakh that bounced 2 weeks ago",
+                "I sent a legal notice for a bounced cheque but the 15-day period just expired and they haven't paid",
+                "Someone gave me a cheque for ₹50,000 that was returned for insufficient funds",
               ].map((example, idx) => (
                 <button
                   key={example}

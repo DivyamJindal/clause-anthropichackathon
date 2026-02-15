@@ -109,7 +109,9 @@ When you have gathered enough facts (usually after 2-3 exchanges), provide your 
 
 After giving the analysis, ask if they want you to generate the legal notice or settlement proposal.`;
 
-const BENCH_SYSTEM_PROMPT = `You are CLAUSE Bench, an AI judicial assistant for Indian courts. You generate comprehensive Bench Briefs to help judges process cases efficiently.
+const BENCH_SYSTEM_PROMPT = `You are an AI law clerk — you prepare comprehensive briefs for the judge's review. The judge always makes the final decision. Your role is to save the judge time by organizing facts, analyzing law, and presenting a clear assessment.
+
+You are CLAUSE Bench, an AI judicial assistant for Indian courts. You generate comprehensive Bench Briefs to help judges process cases efficiently.
 
 Given case details, generate a structured Bench Brief in JSON format containing:
 
@@ -412,6 +414,14 @@ Return the order text as a plain string, no JSON, no markdown code blocks.`;
 async function seedDatabase() {
   const existingCases = await storage.getCases();
   if (existingCases.length === 0) {
+    await storage.createCase({
+      applicantName: "Ramesh Verma",
+      offenseType: "S.138 NI Act (Cheque Dishonour)",
+      detentionMonths: 0,
+      status: "pending",
+      brief: null,
+      order: null,
+    });
     await storage.createCase({
       applicantName: "Arjun Mehra",
       offenseType: "S.304A BNS (Death by Negligence)",

@@ -150,7 +150,7 @@ export default function CaseDetail() {
         {isAnalyzing && !brief ? (
           <div className="flex flex-col items-center justify-center py-20 space-y-3" data-testid="status-analyzing">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Generating bench brief...</p>
+            <p className="text-sm text-muted-foreground">Your law clerk is preparing the brief...</p>
           </div>
         ) : brief ? (
           <div className="space-y-6">
@@ -227,7 +227,7 @@ export default function CaseDetail() {
             <Card className="p-6 space-y-4 bg-card border" data-testid="card-recommendation">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Recommendation</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Law Clerk's Assessment</p>
                   <div className="flex items-center gap-3">
                     <span
                       className={`text-xl font-semibold ${
@@ -317,7 +317,7 @@ export default function CaseDetail() {
               <Card className="p-5 space-y-3" data-testid="card-draft-order">
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-muted-foreground" />
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Draft Order</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Draft Order</p>
                 </div>
                 <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap" data-testid="text-draft-order">
                   {brief.draftOrder}

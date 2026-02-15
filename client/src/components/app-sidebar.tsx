@@ -1,5 +1,6 @@
 import { useLocation, Link } from "wouter";
-import { Scale, MessageSquare, Gavel, Home } from "lucide-react";
+import { MessageSquare, Gavel, Home } from "lucide-react";
+import { LogoFull } from "@/components/logo";
 import {
   Sidebar,
   SidebarContent,
@@ -25,12 +26,9 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <Link href="/">
-          <div className="flex items-center gap-2 cursor-pointer" data-testid="sidebar-logo">
-            <Scale className="w-5 h-5 text-foreground" />
-            <span className="text-base font-semibold tracking-tight">CLAUSE</span>
-          </div>
+          <LogoFull className="cursor-pointer" />
         </Link>
-        <p className="text-[11px] text-muted-foreground mt-1">AI Legal Platform</p>
+        <p className="text-[11px] text-muted-foreground mt-1">AI Law Clerk for India</p>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

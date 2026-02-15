@@ -16,9 +16,9 @@ export default function BenchDashboard() {
 
       <div className="max-w-4xl w-full mx-auto px-4 py-8 space-y-6">
         <div className="space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight" data-testid="text-bench-heading">Bail Applications</h1>
+          <h1 className="text-xl font-semibold tracking-tight" data-testid="text-bench-heading">Case Docket</h1>
           <p className="text-sm text-muted-foreground" data-testid="text-bench-count">
-            {cases?.length || 0} pending applications. Click to view AI-generated bench brief.
+            {cases?.length || 0} cases. Your AI law clerk has prepared briefs for review.
           </p>
         </div>
 
