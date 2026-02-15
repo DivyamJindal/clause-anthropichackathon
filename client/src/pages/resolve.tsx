@@ -307,14 +307,14 @@ export default function ResolvePage() {
       )}
 
       <div className="sticky bottom-0 bg-background border-t border-border px-4 py-3">
-        <div className="max-w-3xl mx-auto relative">
+        <div className="max-w-3xl mx-auto flex items-end gap-2">
           <Textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Describe your legal situation..."
-            className="resize-none pr-12 text-sm min-h-[48px] max-h-[200px] rounded-xl border-input"
+            className="resize-none text-sm min-h-[48px] max-h-[200px] rounded-xl border-input flex-1"
             rows={1}
             disabled={isStreaming}
             data-testid="input-message"
@@ -323,7 +323,7 @@ export default function ResolvePage() {
             size="icon"
             onClick={sendMessage}
             disabled={!input.trim() || isStreaming}
-            className="absolute right-2 bottom-2 rounded-lg"
+            className="rounded-lg shrink-0"
             data-testid="button-send"
           >
             <Send className="w-4 h-4" />
