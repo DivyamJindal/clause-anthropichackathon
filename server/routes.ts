@@ -195,6 +195,52 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  // --- Resolve Upload API ---
+  app.post("/api/resolve/upload", upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const file = req.file;
+      const ext = file.originalname.split('.').pop()?.toLowerCase();
+
+      if (ext === 'pdf') {
+        const pdfData = await pdfParse(file.buffer);
+        const text = pdfData.text;
+        return res.json({
+          name: file.originalname,
+          type: "pdf",
+          content: text,
+          preview: text.slice(0, 200) + (text.length > 200 ? "..." : ""),
+        });
+      } else if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext || '')) {
+        const base64 = file.buffer.toString('base64');
+        const mimeType = file.mimetype;
+        const dataUrl = `data:${mimeType};base64,${base64}`;
+        return res.json({
+          name: file.originalname,
+          type: "image",
+          content: dataUrl,
+          preview: file.originalname,
+        });
+      } else if (ext === 'txt') {
+        const text = file.buffer.toString('utf-8');
+        return res.json({
+          name: file.originalname,
+          type: "text",
+          content: text,
+          preview: text.slice(0, 200) + (text.length > 200 ? "..." : ""),
+        });
+      } else {
+        return res.status(400).json({ message: "Unsupported file type. Please upload PDF, image, or text files." });
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ message: "Failed to process file" });
+    }
+  });
+
   // --- Resolve Chat API (streaming) ---
   app.post("/api/resolve/chat", async (req, res) => {
     try {
@@ -215,10 +261,39 @@ export async function registerRoutes(
           budget_tokens: 10000,
         },
         system: RESOLVE_SYSTEM_PROMPT,
-        messages: messages.map((m: any) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
+        messages: messages.map((m: any) => {
+          if (m.role === "user" && m.attachments && m.attachments.length > 0) {
+            const contentBlocks: any[] = [];
+            for (const att of m.attachments) {
+              if (att.type === "image" && att.content) {
+                const base64Match = att.content.match(/^data:(.*?);base64,(.*)$/);
+                if (base64Match) {
+                  contentBlocks.push({
+                    type: "image",
+                    source: {
+                      type: "base64",
+                      media_type: base64Match[1],
+                      data: base64Match[2],
+                    },
+                  });
+                }
+              } else if ((att.type === "pdf" || att.type === "text") && att.content) {
+                contentBlocks.push({
+                  type: "text",
+                  text: `[Uploaded Document: ${att.name}]\n\n${att.content}`,
+                });
+              }
+            }
+            if (m.content) {
+              contentBlocks.push({ type: "text", text: m.content });
+            }
+            return { role: "user" as const, content: contentBlocks };
+          }
+          return {
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          };
+        }),
       });
 
       let currentBlockType: string | null = null;

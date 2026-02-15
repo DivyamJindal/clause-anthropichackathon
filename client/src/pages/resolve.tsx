@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, Brain, ChevronDown, Gavel, Check, FileText, Paperclip } from "lucide-react";
+import { Send, Loader2, Brain, ChevronDown, Gavel, Check, FileText, Paperclip, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,7 +14,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   thinking?: string;
-  attachments?: { name: string; type: string; preview?: string }[];
+  attachments?: { name: string; type: string; content: string; preview?: string }[];
 }
 
 function parseInteractiveQuestion(content: string) {
@@ -149,8 +149,10 @@ export default function ResolvePage() {
   const [escalated, setEscalated] = useState(false);
   const [isEscalating, setIsEscalating] = useState(false);
   const [escalatedCaseId, setEscalatedCaseId] = useState<number | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<{ name: string; type: string; content: string; preview?: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const scrollToBottom = () => {
@@ -161,13 +163,47 @@ export default function ResolvePage() {
     scrollToBottom();
   }, [messages]);
 
-  const sendMessageWithContent = async (content: string) => {
-    if (!content.trim() || isStreaming) return;
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    const userMessage: Message = { role: "user", content: content.trim() };
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch("/api/resolve/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+        return;
+      }
+
+      const attachment = await res.json();
+      setPendingAttachments(prev => [...prev, attachment]);
+      toast({ title: "File attached", description: `${attachment.name} ready to send` });
+    } catch (error) {
+      toast({ title: "Upload failed", description: "Something went wrong", variant: "destructive" });
+    }
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const sendMessageWithContent = async (content: string) => {
+    if ((!content.trim() && pendingAttachments.length === 0) || isStreaming) return;
+
+    const userMessage: Message = {
+      role: "user",
+      content: content.trim() || (pendingAttachments.length > 0 ? `I've uploaded: ${pendingAttachments.map(a => a.name).join(", ")}. Please analyze these documents.` : ""),
+      attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
+    };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInput("");
+    setPendingAttachments([]);
     setIsStreaming(true);
 
     const assistantMessage: Message = { role: "assistant", content: "" };
@@ -177,7 +213,13 @@ export default function ResolvePage() {
       const response = await fetch("/api/resolve/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({
+          messages: newMessages.map(m => ({
+            role: m.role,
+            content: m.content,
+            attachments: m.attachments,
+          })),
+        }),
       });
 
       if (!response.ok) throw new Error("Chat failed");
@@ -377,7 +419,25 @@ export default function ResolvePage() {
                       )}
                     </div>
                   ) : (
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    <div>
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {msg.attachments.map((att, aidx) => (
+                            <div key={aidx} className="flex items-center gap-1.5 text-xs opacity-90">
+                              {att.type === "image" ? (
+                                <img src={att.content} alt={att.name} className="w-16 h-16 rounded object-cover border border-primary-foreground/20" />
+                              ) : (
+                                <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-primary-foreground/10">
+                                  <FileText className="w-3 h-3" />
+                                  <span className="truncate max-w-[100px]">{att.name}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -443,11 +503,40 @@ export default function ResolvePage() {
       )}
 
       <div className="sticky bottom-0 bg-background border-t border-border px-4 py-3">
+        {pendingAttachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2 max-w-3xl mx-auto" data-testid="pending-attachments">
+            {pendingAttachments.map((att, idx) => (
+              <div key={idx} className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-card text-xs" data-testid={`attachment-${idx}`}>
+                {att.type === "image" ? (
+                  <img src={att.content} alt={att.name} className="w-8 h-8 rounded object-cover" />
+                ) : (
+                  <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                )}
+                <span className="text-foreground truncate max-w-[120px]">{att.name}</span>
+                <button
+                  onClick={() => setPendingAttachments(prev => prev.filter((_, i) => i !== idx))}
+                  className="text-muted-foreground hover:text-foreground ml-1"
+                  data-testid={`button-remove-attachment-${idx}`}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="max-w-3xl mx-auto flex items-end gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.txt,.jpg,.jpeg,.png,.webp,.gif"
+            className="hidden"
+            onChange={handleFileSelect}
+            data-testid="input-file-upload"
+          />
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => toast({ title: "Coming soon", description: "File attachments will be available soon." })}
+            onClick={() => fileInputRef.current?.click()}
             data-testid="button-attach-file"
             className="shrink-0"
           >
@@ -467,7 +556,7 @@ export default function ResolvePage() {
           <Button
             size="icon"
             onClick={sendMessage}
-            disabled={!input.trim() || isStreaming}
+            disabled={(!input.trim() && pendingAttachments.length === 0) || isStreaming}
             className="rounded-lg shrink-0"
             data-testid="button-send"
           >
